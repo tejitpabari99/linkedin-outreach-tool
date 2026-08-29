@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "LinkedIn Outreach — Juno",
+  "timezone": "America/Los_Angeles",
+  "lanes": [
+    { "id": "outreach", "label": "Outreach", "blurb": "Get to data + customers" },
+    { "id": "presence", "label": "Presence", "blurb": "Be worth finding" }
+  ],
+  "tasks": [
+    { "id": "invites",   "lane": "outreach", "label": "Targeted connection requests", "min": 10, "target": 15, "link": "optional" },
+    { "id": "dms",       "lane": "outreach", "label": "Follow-up DMs",                "min": 2,  "target": 4,  "link": "optional" },
+    { "id": "call_ask",  "lane": "outreach", "label": "Call asks sent",               "min": 1,  "target": 2,  "link": "optional" },
+    { "id": "comments",  "lane": "presence", "label": "Substantive comments",         "min": 5,  "target": 10, "link": "optional" },
+    { "id": "post",      "lane": "presence", "label": "Posts published",              "min": 1,  "target": 1,  "link": "required" }
+  ],
+  "metrics": [
+    { "id": "followers",     "label": "Followers",                   "headline": true },
+    { "id": "profile_views", "label": "Profile views" },
+    { "id": "impressions",   "label": "Post impressions" },
+    { "id": "replies",       "label": "Replies from target people" },
+    { "id": "calls_booked",  "label": "Calls booked" }
+  ],
+  "links": [
+    { "label": "Reachouts sheet",        "url": "" },
+    { "label": "LinkedIn notifications", "url": "https://www.linkedin.com/notifications/" },
+    { "label": "Creator analytics",      "url": "https://www.linkedin.com/analytics/creator/" },
+    { "label": "My profile",             "url": "" },
+    { "label": "Strategy doc",           "url": "" }
+  ]
+}
