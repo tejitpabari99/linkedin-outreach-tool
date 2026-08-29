@@ -13,8 +13,19 @@ export function isValidWeekKey(key) {
   if (typeof key !== 'string') return false;
   const m = key.match(WEEK_KEY_RE);
   if (!m) return false;
+  const year = Number(m[1]);
   const week = Number(m[2]);
-  return week >= 1 && week <= 53;
+  if (week < 1 || week > 53) return false;
+  return week <= maxIsoWeekOfYear(year);
+}
+
+// Dec 28 of any given year always falls in that year's LAST ISO week (per the ISO 8601
+// "nearest Thursday" rule), so running the same week-key algorithm on it tells us whether
+// this ISO year has 52 or 53 weeks — reused rather than re-deriving the 52-vs-53 rule
+// independently, so there is only one implementation of the ISO week algorithm to keep correct.
+function maxIsoWeekOfYear(isoYear) {
+  const key = isoWeekKeyFromUTCDate(new Date(Date.UTC(isoYear, 11, 28)));
+  return Number(key.match(WEEK_KEY_RE)[2]);
 }
 
 function isoWeekKeyFromUTCDate(utcDate) {

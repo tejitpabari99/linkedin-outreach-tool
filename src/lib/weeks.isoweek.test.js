@@ -8,7 +8,8 @@ import {
   nextWeekKey,
   prevWeekKey,
   isValidWeekKey,
-  listWeekKeys
+  listWeekKeys,
+  WeekError
 } from './weeks.js';
 
 describe('dateToWeekKey — ISO week-year boundary fixtures (PRD §4.5)', () => {
@@ -84,6 +85,34 @@ describe('isValidWeekKey', () => {
   }
   it('accepts a well-formed key', () => {
     expect(isValidWeekKey('2026-W35')).toBe(true);
+  });
+
+  it('accepts week 53 for a confirmed 53-week ISO year (2026)', () => {
+    expect(isValidWeekKey('2026-W53')).toBe(true);
+  });
+
+  it('accepts week 53 for a confirmed 53-week ISO year (2020)', () => {
+    expect(isValidWeekKey('2020-W53')).toBe(true);
+  });
+
+  it('rejects week 53 for a confirmed 52-week ISO year (2023)', () => {
+    expect(isValidWeekKey('2023-W53')).toBe(false);
+  });
+
+  it('rejects week 53 for a confirmed 52-week ISO year (2025)', () => {
+    expect(isValidWeekKey('2025-W53')).toBe(false);
+  });
+});
+
+describe('weekKeyToRange — year-aware week-number range check', () => {
+  it('throws for a well-formed but non-existent week key (2023-W53, a 52-week year)', () => {
+    expect(() => weekKeyToRange('2023-W53')).toThrow(WeekError);
+  });
+
+  it('still resolves a real 53rd week correctly (2026-W53)', () => {
+    const { start, end } = weekKeyToRange('2026-W53');
+    expect(start).toBe('2026-12-28');
+    expect(end).toBe('2027-01-03');
   });
 });
 
