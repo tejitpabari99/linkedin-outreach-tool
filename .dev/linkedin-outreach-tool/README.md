@@ -20,7 +20,7 @@ TASKS.md per sub-project) and `dev-code` (implement).
 | Folder | Title | Phase | Status | Depends on | Scope (one line) |
 |---|---|---|---|---|---|
 | `01-core-data-layer/` | SP1 — Core Data Layer + App Scaffold | 1 | Complete¹ | none | SvelteKit scaffold, `config.js` (load/validate), `weeks.js` (ISO-week maths, week-file I/O, pure apply arithmetic) — the disk-backed core everything else imports. |
-| `02-api-and-diary-parse/` | SP2 — API Routes + Diary Parse | 2 | Not Started (PRD + TASKS.md approved, no code yet) | SP1 | HTTP surface over SP1 (entries, weeks, config, items, import/export) plus `parse.js`, the one outbound call to DeepSeek, with a strict untrusted-output validator. |
+| `02-api-and-diary-parse/` | SP2 — API Routes + Diary Parse | 2 | Complete² | SP1 | HTTP surface over SP1 (entries, weeks, config, items, import/export) plus `parse.js`, the one outbound call to DeepSeek, with a strict untrusted-output validator. |
 | `03-week-view-ui/` | SP3 — Week View UI | 3 | Not Started (PRD + TASKS.md approved, no code yet) | SP1 + SP2 | The one-screen "this week" view: pinned links, metrics row, two lanes of task bars, diary box with Apply/Discard preview — plus the shared `weekStore` and layout slots SP4 mounts into. |
 | `04-history-and-checks/` | SP4 — History, Calendar, Log & Week-4 Honesty Check | 4 | Not Started (PRD + TASKS.md approved, no code yet) | SP1 + SP2 + SP3 | History strip, month calendar + next-week view, reverse-chronological log, retro-logging correctness fix, and D24's deterministic week-4 honesty check. |
 | `05-deploy-and-docs/` | SP5 — Deployment, Gateway Integration & Docs | 2 (parallel with SP2); final wiring after SP4 | On Hold (deprioritized by project owner; app runs standalone for now) | none for design; wiring depends on SP1–SP4 existing | Reverse-proxy route inside `cc-gateway`, base-path/`ORIGIN` contract, PM2 ecosystem file, `.env.example`, and all repo docs (`README.md`, `CLAUDE.md`, `config/README.md`). |
@@ -29,6 +29,12 @@ TASKS.md per sub-project) and `dev-code` (implement).
 findings — a schema-validation gap in `readWeek` and a year-unaware ISO week-53 acceptance bug), both
 fixed and independently re-verified, final verdict PASS, 97/97 tests passing. See
 `01-core-data-layer/review-2026-08-29-1610.md` for the full review.
+
+² SP2: implemented (14 tasks, one commit per task, test-first), reviewed via `dev-review` (initial
+verdict BLOCK — import bundle path-traversal + partial write, a weak import shape check, and a
+lost-update race across the LLM parse `await`), all fixed and independently re-reviewed by both
+blocking personas, final verdict PASS, 289/289 tests passing. See
+`02-api-and-diary-parse/review.v1.md` for the full review.
 
 ## Status Legend
 
