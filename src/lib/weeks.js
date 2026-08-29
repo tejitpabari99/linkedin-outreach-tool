@@ -120,6 +120,23 @@ export function emptyWeek(weekKey, config) {
   };
 }
 
+// A syntactically-valid-JSON value that isn't shaped like a week object must still throw —
+// a caller silently accepting it could later writeWeek() the bogus object over recoverable data.
+// Only the top-level shape is checked here; per-task/metric-id correctness against the current
+// config is projectWeekForConfig's job (PRD §4.6/§9), not readWeek's.
+function assertWeekShape(parsed, weekKey) {
+  const fail = (field) => {
+    throw new WeekError(`Week file for ${weekKey} is corrupt: missing or invalid '${field}'`, weekKey);
+  };
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) fail('root');
+  if (typeof parsed.version !== 'number') fail('version');
+  if (typeof parsed.week !== 'string' || parsed.week !== weekKey) fail('week');
+  if (typeof parsed.start !== 'string') fail('start');
+  if (typeof parsed.end !== 'string') fail('end');
+  if (parsed.counts === null || typeof parsed.counts !== 'object' || Array.isArray(parsed.counts)) fail('counts');
+  if (parsed.metrics === null || typeof parsed.metrics !== 'object' || Array.isArray(parsed.metrics)) fail('metrics');
+}
+
 export function readWeek(weekKey, config, dataDir = DATA_DIR) {
   if (!isValidWeekKey(weekKey)) throw new WeekError(`Invalid week key "${weekKey}"`, weekKey);
   const filePath = join(dataDir, `${weekKey}.json`);
@@ -137,6 +154,7 @@ export function readWeek(weekKey, config, dataDir = DATA_DIR) {
     // Corrupt file is NOT treated as "missing" — never silently fall back to empty here.
     throw new WeekError(`Week file ${weekKey}.json is corrupt and could not be parsed: ${err.message}`, weekKey);
   }
+  assertWeekShape(parsed, weekKey);
   // Additive-only reconciliation against current config — see PRD §4.7 for the drift policy.
   const counts = { ...parsed.counts };
   for (const t of config.tasks) if (!(t.id in counts)) counts[t.id] = 0;

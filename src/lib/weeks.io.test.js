@@ -22,6 +22,21 @@ describe('readWeek', () => {
     writeFileSync(join(dir, '2026-W35.json'), '{ not valid json', 'utf8');
     expect(() => readWeek('2026-W35', CONFIG, dir)).toThrow(WeekError);
   });
+
+  it('throws WeekError for a syntactically-valid-JSON but schema-invalid file ({})', () => {
+    writeFileSync(join(dir, '2026-W35.json'), '{}', 'utf8');
+    expect(() => readWeek('2026-W35', CONFIG, dir)).toThrow(WeekError);
+  });
+
+  it('throws WeekError for a syntactically-valid-JSON but schema-invalid file ([])', () => {
+    writeFileSync(join(dir, '2026-W35.json'), '[]', 'utf8');
+    expect(() => readWeek('2026-W35', CONFIG, dir)).toThrow(WeekError);
+  });
+
+  it('throws WeekError for a syntactically-valid-JSON but schema-invalid file ("hello")', () => {
+    writeFileSync(join(dir, '2026-W35.json'), '"hello"', 'utf8');
+    expect(() => readWeek('2026-W35', CONFIG, dir)).toThrow(WeekError);
+  });
 });
 
 describe('writeWeek + readWeek round-trip', () => {
