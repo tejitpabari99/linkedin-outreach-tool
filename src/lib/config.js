@@ -110,3 +110,28 @@ export function validateConfig(raw) {
 
   return raw;
 }
+
+export function loadConfig(configPath = CONFIG_PATH) {
+  let raw;
+  try {
+    raw = readFileSync(configPath, 'utf8');
+  } catch (err) {
+    throw new ConfigError(`Failed to read config file at ${configPath}: ${err.message}`, null);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    throw new ConfigError(`Config file at ${configPath} contains invalid JSON: ${err.message}`, null);
+  }
+  return validateConfig(parsed);
+}
+
+export function writeConfig(config, configPath = CONFIG_PATH) {
+  validateConfig(config); // defensive re-validation — never persists something that wouldn't itself load cleanly
+  const dir = dirname(configPath);
+  mkdirSync(dir, { recursive: true });
+  const tmpPath = join(dir, `.config.json.tmp-${process.pid}-${Date.now()}`);
+  writeFileSync(tmpPath, JSON.stringify(config, null, 2), 'utf8');
+  renameSync(tmpPath, configPath); // same-directory atomic rename
+}
