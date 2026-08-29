@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -164,4 +165,132 @@ export function projectWeekForConfig(week, config) {
     counts: Object.fromEntries(Object.entries(week.counts).filter(([id]) => taskIds.has(id))),
     metrics: Object.fromEntries(Object.entries(week.metrics).filter(([id]) => metricIds.has(id)))
   };
+}
+
+export const MAX_APPLY_DELTA = 1000; // exported so SP2's parse.js validation uses the same bound
+
+export function bumpCount(week, taskId, delta) {
+  if (!Number.isInteger(delta)) throw new WeekError(`Delta for "${taskId}" must be an integer (got ${delta})`, week.week);
+  const next = structuredClone(week);
+  const current = next.counts[taskId] ?? 0;
+  next.counts[taskId] = Math.max(0, current + delta); // clamped — a count can never go negative
+  return next;
+}
+
+export function setMetric(week, metricId, value) {
+  if (value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) {
+    throw new WeekError(`Metric "${metricId}" value must be a non-negative number or null (got ${value})`, week.week);
+  }
+  const next = structuredClone(week);
+  next.metrics[metricId] = value;
+  return next;
+}
+
+export function appendEntry(week, { date, text }) {
+  if (typeof text !== 'string' || text.trim() === '') {
+    throw new WeekError('Entry text must be a non-empty string', week.week);
+  }
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new WeekError(`Entry date "${date}" must be an ISO calendar date (YYYY-MM-DD)`, week.week);
+  }
+  const entry = {
+    id: randomUUID(),
+    date,
+    at: new Date().toISOString(),
+    text,
+    parseStatus: 'pending'
+    // "applied" key is intentionally absent until applyEntryToWeek sets it —
+    // JSON.stringify drops `undefined` values, so it never appears in the file for pending/discarded/failed entries.
+  };
+  const next = structuredClone(week);
+  next.entries.push(entry);
+  return { week: next, entry };
+}
+
+function findEntryOrThrow(week, entryId) {
+  const entry = week.entries.find(e => e.id === entryId);
+  if (!entry) throw new WeekError(`Entry "${entryId}" not found in week ${week.week}`, week.week);
+  return entry;
+}
+
+export function applyEntryToWeek(week, entryId, approved) {
+  const next = structuredClone(week);
+  const entry = findEntryOrThrow(next, entryId);
+  if (entry.parseStatus !== 'pending') {
+    throw new WeekError(`Entry "${entryId}" is not pending (status: ${entry.parseStatus})`, week.week);
+  }
+  const counts = approved?.counts ?? {};
+  const metrics = approved?.metrics ?? {};
+  for (const [taskId, delta] of Object.entries(counts)) {
+    if (!Number.isInteger(delta) || delta < 0) {
+      throw new WeekError(`Invalid count delta for "${taskId}": ${delta}`, week.week);
+    }
+    if (delta > MAX_APPLY_DELTA) {
+      throw new WeekError(`Count delta for "${taskId}" (${delta}) exceeds sane bound (${MAX_APPLY_DELTA})`, week.week);
+    }
+    const current = next.counts[taskId] ?? 0;
+    next.counts[taskId] = Math.max(0, current + delta);
+  }
+  for (const [metricId, value] of Object.entries(metrics)) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      throw new WeekError(`Invalid metric value for "${metricId}": ${value}`, week.week);
+    }
+    next.metrics[metricId] = value;
+  }
+  entry.applied = { counts, metrics };
+  entry.parseStatus = 'ok';
+  return next;
+}
+
+export function discardEntry(week, entryId) {
+  const next = structuredClone(week);
+  const entry = findEntryOrThrow(next, entryId);
+  if (entry.parseStatus !== 'pending') {
+    throw new WeekError(`Entry "${entryId}" is not pending (status: ${entry.parseStatus})`, week.week);
+  }
+  entry.parseStatus = 'discarded';
+  return next;
+}
+
+export function markEntryFailed(week, entryId) {
+  const next = structuredClone(week);
+  const entry = findEntryOrThrow(next, entryId);
+  if (entry.parseStatus !== 'pending') {
+    throw new WeekError(`Entry "${entryId}" is not pending (status: ${entry.parseStatus})`, week.week);
+  }
+  entry.parseStatus = 'failed';
+  return next;
+}
+
+export function removeEntry(week, entryId) {
+  const next = structuredClone(week);
+  const idx = next.entries.findIndex(e => e.id === entryId);
+  if (idx === -1) throw new WeekError(`Entry "${entryId}" not found in week ${week.week}`, week.week);
+  // Deliberately does NOT reverse counts/metrics already merged by a prior applyEntryToWeek —
+  // per D9 there is no undo mechanism. This only removes the log row.
+  next.entries.splice(idx, 1);
+  return next;
+}
+
+function assertValidLink(link, weekKey) {
+  if (link !== null && (typeof link !== 'object' || typeof link.url !== 'string' || typeof link.label !== 'string')) {
+    throw new WeekError('link must be null or { url: string, label: string }', weekKey);
+  }
+}
+
+export function appendItem(week, { taskId, link = null }) {
+  assertValidLink(link, week.week);
+  const item = { id: randomUUID(), taskId, at: new Date().toISOString(), link };
+  const next = structuredClone(week);
+  next.items.push(item);
+  return { week: next, item };
+}
+
+export function attachItemLink(week, itemId, link) {
+  assertValidLink(link, week.week);
+  const next = structuredClone(week);
+  const item = next.items.find(i => i.id === itemId);
+  if (!item) throw new WeekError(`Item "${itemId}" not found in week ${week.week}`, week.week);
+  item.link = link;
+  return next;
 }
