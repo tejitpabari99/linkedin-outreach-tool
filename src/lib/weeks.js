@@ -1,11 +1,12 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { isAllowedUrl } from './config.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url)); // src/lib
-const PROJECT_ROOT = join(__dirname, '..', '..');
+// See the matching comment in config.js: PROJECT_ROOT must be process.cwd(), not a path
+// derived from import.meta.url, because that breaks once this module is bundled into
+// build/server/chunks/... by adapter-node.
+const PROJECT_ROOT = process.cwd();
 export const DATA_DIR = join(PROJECT_ROOT, 'data');
 
 const WEEK_KEY_RE = /^(\d{4})-W(\d{2})$/;
