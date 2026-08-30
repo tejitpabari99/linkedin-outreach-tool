@@ -72,7 +72,18 @@
 
   const flush = debounce(flushPending, 500);
 
-  function tap(delta) {
+  async function tap(delta) {
+    if (task.link === 'required' && delta > 0) {
+      const res = await fetch(`${base}/api/week/${store.weekKey}/items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, link: null })
+      });
+      if (!res.ok) return;
+      const { counts } = await res.json();
+      store.replaceWeek({ ...store.week, counts });
+      store.markWeekDirty(store.weekKey);
+      return;
+    }
     store.bumpLocalCount(task.id, delta);
     pendingDelta += delta;
     flush();

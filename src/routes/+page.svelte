@@ -2,8 +2,12 @@
   import { untrack } from 'svelte';
   import Confetti from '$lib/components/Confetti.svelte';
   import DiaryBox from '$lib/components/DiaryBox.svelte';
+  import DiaryLog from '$lib/components/DiaryLog.svelte';
+  import HistoryStrip from '$lib/components/HistoryStrip.svelte';
   import MetricsRow from '$lib/components/MetricsRow.svelte';
+  import MonthCalendar from '$lib/components/MonthCalendar.svelte';
   import PinnedLinks from '$lib/components/PinnedLinks.svelte';
+  import WeekFourCheck from '$lib/components/WeekFourCheck.svelte';
   import WeekLanes from '$lib/components/WeekLanes.svelte';
   import { createWeekStore, provideWeekStore } from '$lib/stores/weekStore.svelte.js';
   import { selectNextTask } from '$lib/utils/selectNext.js';
@@ -46,12 +50,18 @@
          getWeekStore() is available to anything rendered here. This section is expected
          to require scrolling — only slots 1–4 are the "no scrolling to see the week"
          requirement (BRAINSTORM §3.5). Do not remove or restyle this placeholder. -->
-    <section class="sp4-slot" data-slot="history-calendar"></section>
+    <section class="sp4-slot" data-slot="history-calendar">
+      <HistoryStrip weeks={data.historyWeeks} weeksCompletedCount={data.weeksCompletedCount} currentWeekKey={data.weekKey} />
+      <WeekFourCheck result={data.weekFourCheck} />
+      <MonthCalendar month={data.calendarMonth} nextWeek={data.nextWeekPreview} config={data.config} />
+    </section>
 
     <!-- SLOT 6 — SP4: reverse-chronological diary log with links.
          Reuse EntryPreview.svelte (Task 10) for any entry still parseStatus:'pending' with a
          proposed preview that isn't the most-recent one (DiaryBox only surfaces the latest). -->
-    <section class="sp4-slot" data-slot="diary-log"></section>
+    <section class="sp4-slot" data-slot="diary-log">
+      <DiaryLog initial={data.logInitial} oldestLoadedWeek={data.logOldestLoadedWeek} config={data.config} />
+    </section>
   </main>
 {/if}
 

@@ -22,7 +22,7 @@ TASKS.md per sub-project) and `dev-code` (implement).
 | `01-core-data-layer/` | SP1 — Core Data Layer + App Scaffold | 1 | Complete¹ | none | SvelteKit scaffold, `config.js` (load/validate), `weeks.js` (ISO-week maths, week-file I/O, pure apply arithmetic) — the disk-backed core everything else imports. |
 | `02-api-and-diary-parse/` | SP2 — API Routes + Diary Parse | 2 | Complete² | SP1 | HTTP surface over SP1 (entries, weeks, config, items, import/export) plus `parse.js`, the one outbound call to DeepSeek, with a strict untrusted-output validator. |
 | `03-week-view-ui/` | SP3 — Week View UI | 3 | Complete³ | SP1 + SP2 | The one-screen "this week" view: pinned links, metrics row, two lanes of task bars, diary box with Apply/Discard preview — plus the shared `weekStore` and layout slots SP4 mounts into. |
-| `04-history-and-checks/` | SP4 — History, Calendar, Log & Week-4 Honesty Check | 4 | Not Started (PRD + TASKS.md approved, no code yet) | SP1 + SP2 + SP3 | History strip, month calendar + next-week view, reverse-chronological log, retro-logging correctness fix, and D24's deterministic week-4 honesty check. |
+| `04-history-and-checks/` | SP4 — History, Calendar, Log & Week-4 Honesty Check | 4 | Complete⁴ | SP1 + SP2 + SP3 | History strip, month calendar + next-week view, reverse-chronological log, retro-logging correctness fix, and D24's deterministic week-4 honesty check. |
 | `05-deploy-and-docs/` | SP5 — Deployment, Gateway Integration & Docs | 2 (parallel with SP2); final wiring after SP4 | On Hold (deprioritized by project owner; app runs standalone for now) | none for design; wiring depends on SP1–SP4 existing | Reverse-proxy route inside `cc-gateway`, base-path/`ORIGIN` contract, PM2 ecosystem file, `.env.example`, and all repo docs (`README.md`, `CLAUDE.md`, `config/README.md`). |
 
 ¹ SP1: implemented (13 tasks), reviewed via `dev-review` (initial verdict BLOCK on 2 Bug Hunter
@@ -44,6 +44,17 @@ test-coverage gaps), all fixed plus an EntryPreview apply-revert hardening, conf
 re-review, 315/315 tests passing, build clean, dev SSR verified. The retro-logging week-key fix was
 verified correct. See `03-week-view-ui/review.v1.md`. (Known out-of-scope follow-up: the built
 adapter-node server resolves `config/` under `build/` — an SP1/SP5 concern; `npm run dev` works.)
+
+⁴ SP4: implemented (Tasks 1–16 utils/components/`/week/[week]` route/root-page extension + cross-SP
+requests R-A..R-D editing SP3 files, plus util tests 17–21; manual smoke Task 22 deferred to the
+real-user simulation), reviewed via `dev-review` (initial NEEDS_CHANGES from all four personas — a
+`/week/[week]` crash on a pending entry, non-reactive link-attach/reparse rows, a missing
+`markWeekDirty` on required-link taps, a `javascript:` URL XSS in LinkAttachForm, and util
+test-coverage gaps incl. the D24 sparse-precedence case). All fixed; a confirming re-review found a
+new must-fix (the `/week/[week]` detail page must render from the store as single source of truth),
+which was fixed and re-verified. Final PASS, 361/361 tests passing, build clean, dev SSR verified
+(root + `/week/[week]`; invalid week → 400). `weekFourCheck` copy and the dirty-week reconciliation
+were verified correct. See `04-history-and-checks/review.v1.md`.
 
 ## Status Legend
 

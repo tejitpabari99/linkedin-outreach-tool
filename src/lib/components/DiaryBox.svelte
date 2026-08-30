@@ -1,9 +1,13 @@
 <script>
   import { base } from '$app/paths';
   import { untrack } from 'svelte';
+  import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
+  import { formatRange } from '$lib/utils/formatRange.js';
+  import { dateToWeekKey, weekKeyToRange } from '$lib/utils/isoWeek.js';
   import EntryPreview from './EntryPreview.svelte';
 
   let { weekKey, initialEntries } = $props();
+  const store = getWeekStore();
   const initialEntry = untrack(() => findLatestPendingPreview(initialEntries));
 
   let text = $state('');
@@ -11,6 +15,12 @@
   let phase = $state(initialEntry ? 'preview' : 'idle');
   let activeEntry = $state(initialEntry);
   let entryWeekKey = $state(untrack(() => weekKey));
+  const targetWeekLabel = $derived.by(() => {
+    const targetKey = dateToWeekKey(date, store.config.timezone);
+    if (targetKey === weekKey) return null;
+    const { start, end } = weekKeyToRange(targetKey);
+    return `Logging into ${formatRange(start, end)} (${targetKey})`;
+  });
 
   function findLatestPendingPreview(entries) {
     const candidates = entries.filter((entry) => entry.parseStatus === 'pending' && entry.proposed);
@@ -78,13 +88,16 @@
       disabled={phase === 'saving'}
     ></textarea>
     <div class="diary-controls">
-      <input
-        class="date-input"
-        type="date"
-        bind:value={date}
-        max={new Date().toISOString().slice(0, 10)}
-        disabled={phase === 'saving'}
-      />
+      <div class="date-control">
+        <input
+          class="date-input"
+          type="date"
+          bind:value={date}
+          max={new Date().toISOString().slice(0, 10)}
+          disabled={phase === 'saving'}
+        />
+        {#if targetWeekLabel}<p class="retro-label">{targetWeekLabel}</p>{/if}
+      </div>
       <button class="save-btn" onclick={save} disabled={phase === 'saving' || !date || !text.trim()}>
         {#if phase === 'saving'}<span class="spinner-sm"></span> Saving…{:else}Save{/if}
       </button>
@@ -111,7 +124,9 @@
   .diary-textarea { width: 100%; box-sizing: border-box; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; color: var(--fg); font-size: 0.88rem; font-family: inherit; resize: vertical; outline: none; }
   .diary-textarea:focus { border-color: var(--input-focus-border); }
   .diary-controls { display: flex; gap: 0.6rem; align-items: center; }
+  .date-control { display: flex; flex-direction: column; }
   .date-input { min-height: 40px; padding: 0.45rem 0.6rem; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 7px; color: var(--fg); font-size: 0.8rem; }
+  .retro-label { font-size: 0.76rem; color: var(--muted); margin: 0.2rem 0 0; }
   .save-btn { min-width: 40px; min-height: 40px; padding: 0.5rem 1.1rem; background: var(--fg); color: var(--bg); border: none; border-radius: 7px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
   .save-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .spinner-sm { display: inline-block; width: 11px; height: 11px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 0.3rem; }

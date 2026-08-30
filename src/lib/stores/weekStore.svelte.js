@@ -6,6 +6,13 @@ export const WEEK_STORE_KEY = 'linkedin-outreach:weekStore';
 export function createWeekStore(initialWeek, config) {
   let week = $state(initialWeek);
   let weekKey = $state(initialWeek.week);
+  let historyVersion = $state(0);
+  let lastDirtyWeek = $state(null);
+
+  function markWeekDirty(weekKey) {
+    lastDirtyWeek = weekKey;
+    historyVersion++;
+  }
 
   function bumpLocalCount(taskId, delta) {
     bumpCount(week.counts, taskId, delta);
@@ -26,12 +33,19 @@ export function createWeekStore(initialWeek, config) {
     get weekKey() {
       return weekKey;
     },
+    get historyVersion() {
+      return historyVersion;
+    },
+    get lastDirtyWeek() {
+      return lastDirtyWeek;
+    },
     get config() {
       return config;
     },
     bumpLocalCount,
     setLocalMetric,
-    replaceWeek
+    replaceWeek,
+    markWeekDirty
   };
 }
 

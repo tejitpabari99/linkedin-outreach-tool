@@ -47,6 +47,7 @@
         const truth = await (await fetch(`${base}/api/week/${weekKey}`)).json();
         store.replaceWeek(truth);
       }
+      store.markWeekDirty(weekKey);
       onResolved(weekKey);
     } catch {
       if (isLiveWeek) store.replaceWeek(snapshot);
@@ -60,6 +61,7 @@
     busy = true;
     await fetch(`${base}/api/week/${weekKey}/entry/${entry.id}/discard`, { method: 'POST' });
     busy = false;
+    store.markWeekDirty(weekKey);
     onResolved(weekKey);
   }
 </script>

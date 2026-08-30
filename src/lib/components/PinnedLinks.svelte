@@ -6,7 +6,7 @@
   let importResult = $state(null);
 
   function isSafeUrl(url) {
-    return typeof url === 'string' && (/^https?:\/\//i.test(url) || url.startsWith('/'));
+    return typeof url === 'string' && (/^https?:\/\//i.test(url) || (url.startsWith('/') && !url.startsWith('//')));
   }
 
   async function onImportFile(event) {
