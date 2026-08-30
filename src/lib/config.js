@@ -1,13 +1,13 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-// PROJECT_ROOT must be process.cwd(), not a path derived from import.meta.url: once this
-// module is bundled by adapter-node, its file lives under build/server/chunks/... rather
-// than src/lib, so a relative "../.." from the module's own location no longer points at the
-// project root. process.cwd() is stable across `vite dev`, `vitest`, and the built
-// `build/index.js` as long as the process is launched from the project root (which the PM2
-// ecosystem config guarantees via its explicit `cwd`).
-const PROJECT_ROOT = process.cwd();
+// PROJECT_ROOT must not be a path derived from import.meta.url: once this module is bundled
+// by adapter-node, its file lives under build/server/chunks/... rather than src/lib, so a
+// relative "../.." from the module's own location no longer points at the project root.
+// process.env.PROJECT_ROOT (set by ecosystem.config.cjs) is used first in production so the
+// resolved path doesn't depend on the invoking shell's cwd; process.cwd() is the documented
+// fallback for `vite dev` and `vitest`, which always start with cwd = the project root.
+const PROJECT_ROOT = process.env.PROJECT_ROOT || process.cwd();
 export const CONFIG_PATH = join(PROJECT_ROOT, 'config', 'config.json');
 
 export class ConfigError extends Error {

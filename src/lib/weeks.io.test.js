@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -89,5 +89,20 @@ describe('config-vs-data drift (readWeek reconciliation, PRD §4.7)', () => {
 
     const onDisk = JSON.parse(readFileSync(join(dir, '2026-W35.json'), 'utf8'));
     expect(onDisk.counts.dms).toBeUndefined(); // readWeek's reconciliation was never written back
+  });
+});
+
+describe('PROJECT_ROOT / DATA_DIR resolution', () => {
+  afterEach(() => {
+    delete process.env.PROJECT_ROOT;
+  });
+
+  it('derives DATA_DIR from process.env.PROJECT_ROOT when set, not process.cwd()', async () => {
+    const projectRootDir = mkdtempSync(join(tmpdir(), 'lot-project-root-'));
+    process.env.PROJECT_ROOT = projectRootDir;
+    vi.resetModules();
+    const { DATA_DIR } = await import('./weeks.js');
+    expect(DATA_DIR).toBe(join(projectRootDir, 'data'));
+    expect(DATA_DIR.startsWith(process.cwd())).toBe(false);
   });
 });

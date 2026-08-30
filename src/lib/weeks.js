@@ -3,10 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { isAllowedUrl } from './config.js';
 
-// See the matching comment in config.js: PROJECT_ROOT must be process.cwd(), not a path
-// derived from import.meta.url, because that breaks once this module is bundled into
-// build/server/chunks/... by adapter-node.
-const PROJECT_ROOT = process.cwd();
+// See the matching comment in config.js: PROJECT_ROOT must not be a path derived from
+// import.meta.url, because that breaks once this module is bundled into build/server/chunks/...
+// by adapter-node. process.env.PROJECT_ROOT (set by ecosystem.config.cjs) is used first so the
+// resolved path doesn't depend on the invoking shell's cwd; process.cwd() is the documented
+// fallback for `vite dev` and `vitest`, which always start with cwd = the project root.
+const PROJECT_ROOT = process.env.PROJECT_ROOT || process.cwd();
 export const DATA_DIR = join(PROJECT_ROOT, 'data');
 
 const WEEK_KEY_RE = /^(\d{4})-W(\d{2})$/;

@@ -21,6 +21,6 @@ module.exports = {
     name: 'linkedin-outreach',
     script: 'build/index.js',
     cwd: __dirname,
-    env: { NODE_ENV: 'production', ...loadEnvFile('.env') }
+    env: { NODE_ENV: 'production', PROJECT_ROOT: __dirname, ...loadEnvFile('.env') }
   }]
 };

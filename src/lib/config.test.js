@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -217,5 +217,20 @@ describe('loadConfig', () => {
     const path = join(dir, 'bad.json');
     writeFileSync(path, '{ not valid json', 'utf8');
     expectConfigError(() => loadConfig(path), null);
+  });
+});
+
+describe('PROJECT_ROOT / CONFIG_PATH resolution', () => {
+  afterEach(() => {
+    delete process.env.PROJECT_ROOT;
+  });
+
+  it('derives CONFIG_PATH from process.env.PROJECT_ROOT when set, not process.cwd()', async () => {
+    const projectRootDir = mkdtempSync(join(tmpdir(), 'lot-project-root-'));
+    process.env.PROJECT_ROOT = projectRootDir;
+    vi.resetModules();
+    const { CONFIG_PATH } = await import('./config.js');
+    expect(CONFIG_PATH).toBe(join(projectRootDir, 'config', 'config.json'));
+    expect(CONFIG_PATH.startsWith(process.cwd())).toBe(false);
   });
 });
