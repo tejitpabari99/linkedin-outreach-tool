@@ -9,12 +9,25 @@ export function GET({ url }) {
   if (!weekKey || !WEEK_KEY_RE.test(weekKey)) {
     return json({ error: 'Invalid or missing "week" query param' }, { status: 400 });
   }
+  if (!weeks.isValidWeekKey(weekKey)) {
+    return json({ error: 'Invalid week key' }, { status: 400 });
+  }
   const cfg = config.loadConfig();
-  const week = weeks.readWeek(weekKey, cfg);
-  return new Response(JSON.stringify(week, null, 2), {
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Disposition': `attachment; filename="${weekKey}.json"`
+  try {
+    const week = weeks.readWeek(weekKey, cfg);
+    return new Response(JSON.stringify(week, null, 2), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="${weekKey}.json"`
+      }
+    });
+  } catch (e) {
+    if (e instanceof weeks.WeekError) {
+      return json({
+        error: `Week file ${weekKey} exists but could not be parsed`,
+        week: weekKey
+      }, { status: 500 });
     }
-  });
+    throw e;
+  }
 }

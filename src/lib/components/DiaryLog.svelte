@@ -14,13 +14,19 @@
 
   async function loadEarlier() {
     loading = true;
-    const listRes = await fetch(`${base}/api/weeks?before=${oldestLoaded}&limit=4`);
-    const { weeks: olderKeys } = await listRes.json();
-    if (olderKeys.length === 0) { exhausted = true; loading = false; return; }
-    const fetched = await Promise.all(olderKeys.map(wk => fetch(`${base}/api/week/${wk}`).then(r => r.json())));
-    rows = mergeLogRows(rows, fetched);
-    oldestLoaded = olderKeys[olderKeys.length - 1];
-    loading = false;
+    try {
+      const listRes = await fetch(`${base}/api/weeks?before=${oldestLoaded}&limit=4`);
+      if (!listRes.ok) return;
+      const { weeks: olderKeys } = await listRes.json();
+      if (!Array.isArray(olderKeys)) return;
+      if (olderKeys.length === 0) { exhausted = true; return; }
+      const fetched = await Promise.all(olderKeys.map(wk => fetch(`${base}/api/week/${wk}`).then(r => r.json())));
+      rows = mergeLogRows(rows, fetched);
+      oldestLoaded = olderKeys[olderKeys.length - 1];
+    } catch {
+    } finally {
+      loading = false;
+    }
   }
 
   $effect(() => {

@@ -8,6 +8,7 @@
 
   async function reparse(weekKey, entryId) {
     const res = await fetch(`${base}/api/week/${weekKey}/entry/${entryId}/reparse`, { method: 'POST' });
+    if (!res.ok) return;
     const { entry } = await res.json();
     row.entry = entry;
   }

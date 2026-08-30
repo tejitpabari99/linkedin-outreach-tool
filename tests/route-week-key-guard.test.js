@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => {
   class WeekError extends Error {}
   return {
     WeekError,
+    isValidWeekKey: vi.fn(),
     readWeek: vi.fn(),
     writeWeek: vi.fn(),
     bumpCount: vi.fn(),
@@ -121,6 +122,7 @@ async function captureInvocation(route, week) {
 describe.each(routes)('$name week-key guard', route => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.isValidWeekKey.mockImplementation(key => key !== SEMANTICALLY_INVALID_KEY);
     mocks.readWeek.mockImplementation(key => {
       if (key === SEMANTICALLY_INVALID_KEY) {
         throw new mocks.WeekError(`Invalid week key "${key}"`);
@@ -149,12 +151,28 @@ describe.each(routes)('$name week-key guard', route => {
     for (const spy of weekSpies) expect(spy).not.toHaveBeenCalled();
   });
 
-  it('lets 2026-W99 pass the route regex and fail in the weeks layer', async () => {
+  it('rejects 2026-W99 through semantic validation before reading a week', async () => {
     const { response, error } = await captureInvocation(route, SEMANTICALLY_INVALID_KEY);
 
-    expect(mocks.readWeek).toHaveBeenCalledWith(SEMANTICALLY_INVALID_KEY, config);
-    if (response) expect(response.status).not.toBe(400);
-    else expect(error).toBeInstanceOf(mocks.WeekError);
+    expect(mocks.isValidWeekKey).toHaveBeenCalledWith(SEMANTICALLY_INVALID_KEY);
+    expect(mocks.readWeek).not.toHaveBeenCalled();
+    expect(error).toBeNull();
+    expect(response.status).toBe(400);
+  });
+
+  it('returns a generic 500 for a corrupt valid-key week without leaking the file path', async () => {
+    mocks.readWeek.mockImplementation(() => {
+      throw new mocks.WeekError('Could not parse Q:\\private\\data\\2026-W35.json');
+    });
+
+    const { response, error } = await captureInvocation(route, VALID_KEY);
+
+    expect(error).toBeNull();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: `Week file ${VALID_KEY} exists but could not be parsed`,
+      week: VALID_KEY
+    });
   });
 
   it('does not reject a valid week key at the route guard', async () => {

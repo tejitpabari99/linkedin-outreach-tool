@@ -17,6 +17,18 @@ export class ConfigError extends Error {
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 const REQUIRED_TOP_LEVEL_KEYS = ['version', 'name', 'timezone', 'lanes', 'tasks', 'metrics', 'links'];
 
+export function isAllowedUrl(u) {
+  if (typeof u !== 'string') return false;
+  if (u === '') return true;
+  if (/[\\]/.test(u)) return false;
+  try {
+    const protocol = new URL(u).protocol;
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function validateConfig(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new ConfigError('Config must be a JSON object', null);
@@ -106,6 +118,9 @@ export function validateConfig(raw) {
     if (!link || typeof link !== 'object') throw new ConfigError(`Link at index ${i} must be an object`, `links[${i}]`);
     if (!('label' in link)) throw new ConfigError(`Link at index ${i} is missing "label"`, `links[${i}]`);
     if (!('url' in link)) throw new ConfigError(`Link at index ${i} is missing "url"`, `links[${i}]`);
+    if (!isAllowedUrl(link.url)) {
+      throw new ConfigError(`Link at index ${i} must have an empty or http/https URL`, `links[${i}].url`);
+    }
   }
 
   return raw;

@@ -6,13 +6,22 @@ const WEEK_KEY_RE = /^\d{4}-W\d{2}$/;
 
 export async function PATCH({ params, request }) {
   if (!WEEK_KEY_RE.test(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
+  if (!weeks.isValidWeekKey(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
   const body = await request.json();
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return json({ error: 'Request body must be a JSON object' }, { status: 400 });
   }
   const { link } = body;
   const cfg = config.loadConfig();
-  let week = weeks.readWeek(params.week, cfg);
+  let week;
+  try {
+    week = weeks.readWeek(params.week, cfg);
+  } catch (e) {
+    if (e instanceof weeks.WeekError) {
+      return json({ error: `Week file ${params.week} exists but could not be parsed`, week: params.week }, { status: 500 });
+    }
+    throw e;
+  }
   try {
     week = weeks.attachItemLink(week, params.id, link);
   } catch (e) {

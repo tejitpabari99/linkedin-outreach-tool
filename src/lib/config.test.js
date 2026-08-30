@@ -183,9 +183,14 @@ describe('validateConfig — links', () => {
     delete bad.links[0].url;
     expectConfigError(() => validateConfig(bad), 'links[0]');
   });
-  it('accepts a link with an empty string url', () => {
+  it.each(['javascript:alert(1)', '//evil.com', '/\\evil.com'])('rejects unsafe link url %j', (url) => {
+    const bad = clone(SEED_CONFIG);
+    bad.links[0].url = url;
+    expectConfigError(() => validateConfig(bad), 'links[0].url');
+  });
+  it.each(['', 'https://x', 'http://y'])('accepts allowed link url %j', (url) => {
     const ok = clone(SEED_CONFIG);
-    ok.links[0].url = '';
+    ok.links[0].url = url;
     expect(() => validateConfig(ok)).not.toThrow();
   });
 });

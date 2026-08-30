@@ -6,20 +6,34 @@ const WEEK_KEY_RE = /^\d{4}-W\d{2}$/;
 
 export function POST({ params }) {
   if (!WEEK_KEY_RE.test(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
+  if (!weeks.isValidWeekKey(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
   const cfg = config.loadConfig();
-  let week = weeks.readWeek(params.week, cfg);
-  const entry = week.entries.find(e => e.id === params.id);
-  if (!entry) return json({ error: 'Entry not found' }, { status: 404 });
-
-  if (entry.parseStatus === 'discarded') {
-    return json({ entry, alreadyDiscarded: true });
+  let week;
+  try {
+    week = weeks.readWeek(params.week, cfg);
+  } catch (e) {
+    if (e instanceof weeks.WeekError) {
+      return json({ error: `Week file ${params.week} exists but could not be parsed`, week: params.week }, { status: 500 });
+    }
+    throw e;
   }
-  if (entry.parseStatus !== 'pending' || !entry.proposed) {
-    return json({ error: 'Entry has no pending parse to discard' }, { status: 409 });
-  }
+  try {
+    const entry = week.entries.find(e => e.id === params.id);
+    if (!entry) return json({ error: 'Entry not found' }, { status: 404 });
 
-  week = weeks.discardEntry(week, entry.id);
-  weeks.writeWeek(params.week, week);
-  const updatedEntry = week.entries.find(e => e.id === params.id);
-  return json({ entry: updatedEntry, alreadyDiscarded: false });
+    if (entry.parseStatus === 'discarded') {
+      return json({ entry, alreadyDiscarded: true });
+    }
+    if (entry.parseStatus !== 'pending' || !entry.proposed) {
+      return json({ error: 'Entry has no pending parse to discard' }, { status: 409 });
+    }
+
+    week = weeks.discardEntry(week, entry.id);
+    weeks.writeWeek(params.week, week);
+    const updatedEntry = week.entries.find(e => e.id === params.id);
+    return json({ entry: updatedEntry, alreadyDiscarded: false });
+  } catch (e) {
+    if (e instanceof weeks.WeekError) return json({ error: e.message }, { status: 400 });
+    throw e;
+  }
 }

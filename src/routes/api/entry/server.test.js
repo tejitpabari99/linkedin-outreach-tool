@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   loadConfig: vi.fn(),
   dateToWeekKey: vi.fn(),
+  isValidWeekKey: vi.fn(),
   readWeek: vi.fn(),
   writeWeek: vi.fn(),
   parseDiaryEntry: vi.fn()
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('$lib/config.js', () => ({ loadConfig: mocks.loadConfig }));
 vi.mock('$lib/weeks.js', () => ({
   dateToWeekKey: mocks.dateToWeekKey,
+  isValidWeekKey: mocks.isValidWeekKey,
   readWeek: mocks.readWeek,
   writeWeek: mocks.writeWeek
 }));
@@ -35,6 +37,7 @@ describe('POST /api/entry', () => {
     vi.clearAllMocks();
     mocks.loadConfig.mockReturnValue(cfg);
     mocks.dateToWeekKey.mockReturnValue('2026-W36');
+    mocks.isValidWeekKey.mockReturnValue(true);
     mocks.readWeek.mockReturnValue({ week: '2026-W36', entries: [] });
     mocks.parseDiaryEntry.mockResolvedValue({ status: 'ok', proposed, ignored });
   });
@@ -78,11 +81,50 @@ describe('POST /api/entry', () => {
     expect(persistedWeek.entries[0].text).toBe(text);
   });
 
-  it('rejects an invalid calendar date without config or disk access', async () => {
-    const response = await POST({ request: requestWith({ date: '2026-13-40', text: 'x' }) });
+  it.each([
+    '2026-02-30',
+    '2026-04-31',
+    '2026-13-01',
+    '0000-01-01',
+    '9999-12-31',
+    'not-a-date'
+  ])('rejects invalid calendar date %s without writing', async (date) => {
+    const response = await POST({ request: requestWith({ date, text: 'x' }) });
 
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Invalid or missing "date" (expected a real YYYY-MM-DD calendar date)'
+    });
     expect(mocks.loadConfig).not.toHaveBeenCalled();
+    expect(mocks.readWeek).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).not.toHaveBeenCalled();
+  });
+
+  it('accepts a real calendar date and writes it', async () => {
+    mocks.dateToWeekKey.mockReturnValue('2026-W35');
+
+    const response = await POST({
+      request: requestWith({ date: '2026-08-24', text: 'valid entry' })
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.dateToWeekKey).toHaveBeenCalledWith(
+      new Date('2026-08-24T12:00:00Z'),
+      'America/Los_Angeles'
+    );
+    expect(mocks.writeWeek).toHaveBeenCalled();
+  });
+
+  it('rejects an invalid derived week key as defense in depth', async () => {
+    mocks.dateToWeekKey.mockReturnValue('999-W01');
+    mocks.isValidWeekKey.mockReturnValue(false);
+
+    const response = await POST({
+      request: requestWith({ date: '2026-01-01', text: 'x' })
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid or missing "date"' });
     expect(mocks.readWeek).not.toHaveBeenCalled();
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });

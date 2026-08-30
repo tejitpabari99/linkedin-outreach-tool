@@ -49,6 +49,14 @@ export function weekFourCheck(touchedWeeksAscending) {
   const prior = touchedWeeksAscending.slice(n - 8, n - 4);
   const priorWeeks = prior.map(w => w.week);
   const priorTotal = prior.reduce((s, w) => s + laneASum(w), 0);
+  const priorBothNull = prior.filter(w => w.metrics.replies == null && w.metrics.calls_booked == null).length;
+
+  if (priorBothNull >= 2) {
+    return {
+      due: true, outcome: 'sparse', checkNumber, currentTotal, priorTotal: null, currentWeeks, priorWeeks: null,
+      line: `Not enough replies/calls data logged in the last 4 weeks to compare — fill in the metrics to make this check mean something.`
+    };
+  }
 
   let outcome, line;
   if (currentTotal === 0) {

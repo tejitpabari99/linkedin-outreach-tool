@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
   return {
     WeekError,
     loadConfig: vi.fn(),
+    isValidWeekKey: vi.fn(() => true),
     readWeek: vi.fn(),
     writeWeek: vi.fn(),
     appendItem: vi.fn(),
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('$lib/config.js', () => ({ loadConfig: mocks.loadConfig }));
 vi.mock('$lib/weeks.js', () => ({
   WeekError: mocks.WeekError,
+  isValidWeekKey: mocks.isValidWeekKey,
   readWeek: mocks.readWeek,
   writeWeek: mocks.writeWeek,
   appendItem: mocks.appendItem,

@@ -81,6 +81,16 @@ describe('weekFourCheck', () => {
     expect(r.line).toBe('Not enough replies/calls data logged in the last 4 weeks to compare — fill in the metrics to make this check mean something.');
   });
 
+  it('n=8, 2+ weeks in the prior window both-null -> sparse instead of up from 0', () => {
+    const prior = [w('W1', null, null), w('W2', null, null), w('W3', null, null), w('W4', null, null)];
+    const current = [w('W5', 2, 0), w('W6', 1, 0), w('W7', 0, 0), w('W8', 0, 0)];
+    const r = weekFourCheck([...prior, ...current]);
+    expect(r.outcome).toBe('sparse');
+    expect(r.priorTotal).toBe(null);
+    expect(r.priorWeeks).toBe(null);
+    expect(r.line).toBe('Not enough replies/calls data logged in the last 4 weeks to compare — fill in the metrics to make this check mean something.');
+  });
+
   it.each([5, 6, 7])('n=%i (between checkpoints) is not due', (n) => {
     const weeks = Array.from({ length: n }, (_, i) => w(`W${i + 1}`, 1, 0));
     expect(weekFourCheck(weeks).due).toBe(false);

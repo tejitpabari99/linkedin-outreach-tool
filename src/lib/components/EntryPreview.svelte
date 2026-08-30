@@ -29,7 +29,7 @@
     if (busy) return;
     busy = true;
     const isLiveWeek = weekKey === store.weekKey;
-    const snapshot = isLiveWeek ? structuredClone(store.week) : null;
+    const snapshot = isLiveWeek ? $state.snapshot(store.week) : null;
     if (isLiveWeek) {
       for (const [taskId, delta] of Object.entries(entry.proposed.counts)) {
         store.bumpLocalCount(taskId, delta);
@@ -59,10 +59,17 @@
   async function discard() {
     if (busy) return;
     busy = true;
-    await fetch(`${base}/api/week/${weekKey}/entry/${entry.id}/discard`, { method: 'POST' });
-    busy = false;
-    store.markWeekDirty(weekKey);
-    onResolved(weekKey);
+    try {
+      const response = await fetch(`${base}/api/week/${weekKey}/entry/${entry.id}/discard`, {
+        method: 'POST'
+      });
+      if (!response.ok) return;
+      store.markWeekDirty(weekKey);
+      onResolved(weekKey);
+    } catch {
+    } finally {
+      busy = false;
+    }
   }
 </script>
 

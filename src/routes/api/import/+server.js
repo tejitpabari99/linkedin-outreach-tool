@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { existsSync, copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as config from '$lib/config.js';
+import { isAllowedUrl } from '$lib/config.js';
 import * as weeks from '$lib/weeks.js';
 
 function structuralCheckWeek(w) {
@@ -21,7 +22,21 @@ function structuralCheckWeek(w) {
   } else if (!Object.values(w.metrics).every(v => v === null || (Number.isFinite(v) && v >= 0))) {
     problems.push('"metrics" values must be null or non-negative finite numbers');
   }
-  if (!Array.isArray(w.items)) problems.push('"items" must be an array');
+  if (!Array.isArray(w.items)) {
+    problems.push('"items" must be an array');
+  } else {
+    for (const [index, item] of w.items.entries()) {
+      const link = item?.link;
+      if (link === null || link === undefined) continue;
+      if (
+        typeof link !== 'object' || Array.isArray(link) ||
+        typeof link.url !== 'string' || typeof link.label !== 'string' ||
+        link.url === '' || !isAllowedUrl(link.url)
+      ) {
+        problems.push(`"items[${index}].link" must be null or { url: http/https URL, label: string }`);
+      }
+    }
+  }
   if (!Array.isArray(w.entries)) problems.push('"entries" must be an array');
   return problems;
 }

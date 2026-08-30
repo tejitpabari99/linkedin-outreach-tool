@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   loadConfig: vi.fn(),
+  isValidWeekKey: vi.fn(() => true),
   readWeek: vi.fn(),
   writeWeek: vi.fn(),
   discardEntry: vi.fn()
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('$lib/config.js', () => ({ loadConfig: mocks.loadConfig }));
 vi.mock('$lib/weeks.js', () => ({
+  isValidWeekKey: mocks.isValidWeekKey,
   readWeek: mocks.readWeek,
   writeWeek: mocks.writeWeek,
   discardEntry: mocks.discardEntry

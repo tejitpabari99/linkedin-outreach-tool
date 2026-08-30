@@ -133,6 +133,9 @@ describe('appendItem / attachItemLink', () => {
   it('throws on a malformed link (missing label)', () => {
     expect(() => appendItem(baseWeek(), { taskId: 'post', link: { url: 'https://x' } })).toThrow(WeekError);
   });
+  it.each(['javascript:alert(1)', '/\\evil.com'])('throws on unsafe item link url %j', (url) => {
+    expect(() => appendItem(baseWeek(), { taskId: 'post', link: { url, label: 'unsafe' } })).toThrow(WeekError);
+  });
   it("attachItemLink updates an existing item's link", () => {
     const { week, item } = appendItem(baseWeek(), { taskId: 'post', link: null });
     const updated = attachItemLink(week, item.id, { url: 'https://y', label: 'later link' });

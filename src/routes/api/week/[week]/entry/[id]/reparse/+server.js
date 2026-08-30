@@ -7,8 +7,18 @@ const WEEK_KEY_RE = /^\d{4}-W\d{2}$/;
 
 export async function POST({ params }) {
   if (!WEEK_KEY_RE.test(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
+  if (!weeks.isValidWeekKey(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
   const cfg = config.loadConfig();
-  const week = weeks.readWeek(params.week, cfg);
+  let week;
+  try {
+    week = weeks.readWeek(params.week, cfg);
+  } catch (e) {
+    if (e instanceof weeks.WeekError) {
+      return json({ error: `Week file ${params.week} exists but could not be parsed`, week: params.week }, { status: 500 });
+    }
+    throw e;
+  }
+
   const entry = week.entries.find(e => e.id === params.id);
   if (!entry) return json({ error: 'Entry not found' }, { status: 404 });
   if (entry.parseStatus !== 'failed') {
@@ -16,7 +26,15 @@ export async function POST({ params }) {
   }
 
   const result = await parseDiaryEntry({ text: entry.text, config: cfg });
-  const freshWeek = weeks.readWeek(params.week, cfg);
+  let freshWeek;
+  try {
+    freshWeek = weeks.readWeek(params.week, cfg);
+  } catch (e) {
+    if (e instanceof weeks.WeekError) {
+      return json({ error: `Week file ${params.week} exists but could not be parsed`, week: params.week }, { status: 500 });
+    }
+    throw e;
+  }
   const freshEntry = freshWeek.entries.find(candidate => candidate.id === params.id);
   const outcomeEntry = freshEntry ?? entry;
   if (result.status === 'ok') {

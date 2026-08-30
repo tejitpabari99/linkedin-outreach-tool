@@ -5,7 +5,16 @@ export function GET() {
   const cfg = config.loadConfig();
   const bundle = { config: cfg, weeks: {} };
   for (const weekKey of weeks.listWeekKeys()) {
-    bundle.weeks[weekKey] = weeks.readWeek(weekKey, cfg);
+    try {
+      bundle.weeks[weekKey] = weeks.readWeek(weekKey, cfg);
+    } catch (e) {
+      if (!(e instanceof weeks.WeekError)) throw e;
+      if (weeks.isValidWeekKey(weekKey)) {
+        (bundle.unreadableWeeks ??= []).push(weekKey);
+      } else {
+        (bundle.skippedWeeks ??= []).push(weekKey);
+      }
+    }
   }
   const today = new Date().toISOString().slice(0, 10);
   return new Response(JSON.stringify(bundle, null, 2), {

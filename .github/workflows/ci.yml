@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test & build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Reproducible install from the committed lockfile.
+      - name: Install dependencies
+        run: npm ci
+
+      # Vitest unit/integration suite (SP1-SP4). Non-interactive.
+      - name: Run tests
+        run: npm test
+
+      # Svelte compile + adapter-node build must succeed (catches SSR/rune errors
+      # the unit tests don't exercise).
+      - name: Build
+        run: npm run build

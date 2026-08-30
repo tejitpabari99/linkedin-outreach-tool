@@ -56,6 +56,17 @@ which was fixed and re-verified. Final PASS, 361/361 tests passing, build clean,
 (root + `/week/[week]`; invalid week → 400). `weekFourCheck` copy and the dirty-week reconciliation
 were verified correct. See `04-history-and-checks/review.v1.md`.
 
+**Post-implementation — combined deep + adversarial review, simulation & CI** (`COMBINED-REVIEW.v1.md`):
+after SP2–SP4 landed, the whole app was put through a cross-cutting adversarial review (two opus
+reviewers, three fix rounds) plus a degraded-mode real-user simulation and an edge-case sweep. This
+found and fixed several defects the read-only per-SP reviews missed — most notably a
+`structuredClone($state proxy)` `DataCloneError` that had **silently broken the current-week diary
+Apply/Discard flow**, a UTC-vs-timezone entry-misfiling bug, home-page fragility to a single corrupt
+week file, a link-URL open-redirect bypass (now blocked at both render sinks and all four server write
+paths), and acceptance of impossible calendar dates. Final adversarial scores **92/100 (integration)**
+and **93/100 (security)**; **387 tests passing**. A GitHub Actions CI workflow (`.github/workflows/ci.yml`)
+now runs the suite + build on Node 22 for every PR/push to `main`. (SP5 deployment remains On Hold.)
+
 ## Status Legend
 
 - **Not Started** — no implementation work has begun (design/PRD/tasks may be done, but no code written yet).

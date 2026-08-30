@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
   return {
     WeekError,
     loadConfig: vi.fn(),
+    isValidWeekKey: vi.fn(),
     readWeek: vi.fn(),
     writeWeek: vi.fn(),
     bumpCount: vi.fn(),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('$lib/config.js', () => ({ loadConfig: mocks.loadConfig }));
 vi.mock('$lib/weeks.js', () => ({
   WeekError: mocks.WeekError,
+  isValidWeekKey: mocks.isValidWeekKey,
   readWeek: mocks.readWeek,
   writeWeek: mocks.writeWeek,
   bumpCount: mocks.bumpCount,
@@ -50,6 +52,7 @@ describe('GET/PATCH /api/week/[week]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.loadConfig.mockReturnValue(cfg);
+    mocks.isValidWeekKey.mockReturnValue(true);
     mocks.readWeek.mockReturnValue(structuredClone(emptyWeek));
     mocks.bumpCount.mockImplementation((week, taskId, delta) => ({
       ...week,

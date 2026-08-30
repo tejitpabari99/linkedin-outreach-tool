@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync } from 
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { isAllowedUrl } from './config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url)); // src/lib
 const PROJECT_ROOT = join(__dirname, '..', '..');
@@ -302,8 +303,11 @@ export function removeEntry(week, entryId) {
 }
 
 function assertValidLink(link, weekKey) {
-  if (link !== null && (typeof link !== 'object' || typeof link.url !== 'string' || typeof link.label !== 'string')) {
-    throw new WeekError('link must be null or { url: string, label: string }', weekKey);
+  if (link !== null && (
+    typeof link !== 'object' || typeof link.url !== 'string' || typeof link.label !== 'string' ||
+    link.url === '' || !isAllowedUrl(link.url)
+  )) {
+    throw new WeekError('link must be null or { url: http/https URL, label: string }', weekKey);
   }
 }
 

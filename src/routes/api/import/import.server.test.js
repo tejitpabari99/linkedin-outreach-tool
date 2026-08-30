@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   mkdirSync: vi.fn(),
   validateConfig: vi.fn(),
   writeConfig: vi.fn(),
+  isAllowedUrl: vi.fn(),
   isValidWeekKey: vi.fn(),
   writeWeek: vi.fn()
 }));
@@ -22,7 +23,8 @@ vi.mock('node:fs', () => ({
 vi.mock('$lib/config.js', () => ({
   CONFIG_PATH: 'Q:\\scratch\\config\\config.json',
   validateConfig: mocks.validateConfig,
-  writeConfig: mocks.writeConfig
+  writeConfig: mocks.writeConfig,
+  isAllowedUrl: mocks.isAllowedUrl
 }));
 vi.mock('$lib/weeks.js', () => ({
   DATA_DIR: 'Q:\\scratch\\data',
@@ -68,6 +70,13 @@ describe('POST /api/import', () => {
     vi.clearAllMocks();
     mocks.existsSync.mockReturnValue(false);
     mocks.validateConfig.mockImplementation(value => value);
+    mocks.isAllowedUrl.mockImplementation(url => {
+      try {
+        return ['http:', 'https:'].includes(new URL(url).protocol);
+      } catch {
+        return false;
+      }
+    });
     mocks.isValidWeekKey.mockImplementation(key => /^\d{4}-W\d{2}$/.test(key));
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-29T21:02:03.456Z'));
@@ -136,6 +145,35 @@ describe('POST /api/import', () => {
 
     expect(result.status).toBe(400);
     expect(result.body.details).toContain('config: Config is missing required field "timezone"');
+    expect(mocks.existsSync).not.toHaveBeenCalled();
+    expect(mocks.mkdirSync).not.toHaveBeenCalled();
+    expect(mocks.copyFileSync).not.toHaveBeenCalled();
+    expect(mocks.writeConfig).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unsafe item link across the entire bundle before backup or write', async () => {
+    const unsafe = week('2026-W35');
+    unsafe.items.push({
+      id: 'item-1',
+      taskId: 'post',
+      link: { url: 'javascript:alert(1)', label: 'Unsafe' }
+    });
+    mocks.existsSync.mockReturnValue(true);
+
+    const result = await responseBody(await POST({
+      request: requestWith({
+        weeks: {
+          '2026-W34': week('2026-W34'),
+          '2026-W35': unsafe
+        }
+      })
+    }));
+
+    expect(result.status).toBe(400);
+    expect(result.body.details).toContain(
+      'weeks["2026-W35"]: "items[0].link" must be null or { url: http/https URL, label: string }'
+    );
     expect(mocks.existsSync).not.toHaveBeenCalled();
     expect(mocks.mkdirSync).not.toHaveBeenCalled();
     expect(mocks.copyFileSync).not.toHaveBeenCalled();

@@ -17,6 +17,7 @@
   let wasCleared = false;
   let justCleared = $state(false);
   let settleTimer;
+  let retryTimer;
 
   $effect(() => {
     const isCleared = cleared;
@@ -36,16 +37,75 @@
     wasCleared = isCleared;
   });
 
-  onDestroy(() => clearTimeout(settleTimer));
+  onDestroy(() => {
+    clearTimeout(settleTimer);
+    clearTimeout(retryTimer);
+  });
 
   let pendingDelta = 0;
+  let failedTargetCount = 0;
   let flushing = false;
   let syncFailed = $state(false);
 
+  function scheduleRetry() {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      retryTimer = undefined;
+      void reconcilePending();
+    }, 2000);
+  }
+
+  async function reconcilePending() {
+    if (!syncFailed) return;
+    if (flushing) {
+      scheduleRetry();
+      return;
+    }
+
+    flushing = true;
+    try {
+      const currentResponse = await fetch(`${base}/api/week/${store.weekKey}`);
+      if (!currentResponse.ok) throw new Error('Count reconciliation failed');
+
+      const serverTruth = await currentResponse.json();
+      const serverCount = serverTruth.counts[task.id] ?? 0;
+      const residual = failedTargetCount - serverCount;
+
+      if (residual === 0) {
+        pendingDelta = 0;
+        failedTargetCount = 0;
+        store.replaceWeek(serverTruth);
+        syncFailed = false;
+        return;
+      }
+
+      pendingDelta = 0;
+      const patchResponse = await fetch(`${base}/api/week/${store.weekKey}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ counts: { [task.id]: residual } })
+      });
+      if (!patchResponse.ok) throw new Error('Count reconciliation failed');
+
+      const updated = await patchResponse.json();
+      store.replaceWeek(updated);
+      if (pendingDelta !== 0) store.bumpLocalCount(task.id, pendingDelta);
+      failedTargetCount = 0;
+      syncFailed = false;
+    } catch {
+      syncFailed = true;
+      scheduleRetry();
+    } finally {
+      flushing = false;
+      if (pendingDelta !== 0 && !syncFailed) flush();
+    }
+  }
+
   async function flushPending() {
-    if (flushing || pendingDelta === 0) return;
+    if (flushing || pendingDelta === 0 || syncFailed) return;
 
     const delta = pendingDelta;
+    const optimisticTargetCount = store.week.counts[task.id] ?? 0;
     pendingDelta = 0;
     flushing = true;
 
@@ -62,8 +122,10 @@
       if (pendingDelta !== 0) store.bumpLocalCount(task.id, pendingDelta);
       syncFailed = false;
     } catch {
+      failedTargetCount = optimisticTargetCount + pendingDelta;
       pendingDelta += delta;
       syncFailed = true;
+      scheduleRetry();
     } finally {
       flushing = false;
       if (pendingDelta !== 0 && !syncFailed) flush();
@@ -86,6 +148,7 @@
     }
     store.bumpLocalCount(task.id, delta);
     pendingDelta += delta;
+    if (syncFailed) failedTargetCount += delta;
     flush();
   }
 

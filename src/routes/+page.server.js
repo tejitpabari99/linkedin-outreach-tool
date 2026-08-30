@@ -2,6 +2,8 @@ import { loadConfig, ConfigError } from '$lib/config.js';
 import {
   currentWeekKey,
   readWeek,
+  emptyWeek,
+  WeekError,
   projectWeekForConfig,
   listWeekKeys,
   nextWeekKey,
@@ -62,7 +64,14 @@ export function load() {
   const projectedWeeks = new Map([[weekKey, week]]);
   const projectedWeek = (key) => {
     if (!projectedWeeks.has(key)) {
-      projectedWeeks.set(key, projectWeekForConfig(readWeek(key, config), config));
+      let raw;
+      try {
+        raw = readWeek(key, config);
+      } catch (e) {
+        if (!(e instanceof WeekError)) throw e;
+        raw = emptyWeek(key, config);
+      }
+      projectedWeeks.set(key, projectWeekForConfig(raw, config));
     }
     return projectedWeeks.get(key);
   };
@@ -95,17 +104,20 @@ export function load() {
     }));
   const weekFourResult = weekFourCheck(touchedWeeks);
 
-  const today = new Date();
-  const [calYear, calMonth] = [today.getUTCFullYear(), today.getUTCMonth() + 1];
+  const todayParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: config.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+  const y = todayParts.find(({ type }) => type === 'year').value;
+  const m = todayParts.find(({ type }) => type === 'month').value;
+  const d = todayParts.find(({ type }) => type === 'day').value;
+  const todayStr = `${y}-${m}-${d}`;
+  const [calYear, calMonth] = [Number(y), Number(m)];
   const monthWeekKeys = weekKeysOverlappingMonth(calYear, calMonth);
   const weeksByKey = Object.fromEntries(monthWeekKeys.map((key) => [key, projectedWeek(key)]));
-  const calendarMonth = buildCalendarMonth(
-    calYear,
-    calMonth,
-    weeksByKey,
-    weekKey,
-    today.toISOString().slice(0, 10)
-  );
+  const calendarMonth = buildCalendarMonth(calYear, calMonth, weeksByKey, weekKey, todayStr);
 
   const nextWeekPreview = {
     weekKey: nextWeekKey(weekKey),

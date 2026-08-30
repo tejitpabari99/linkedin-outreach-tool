@@ -41,15 +41,22 @@
     const version = ++navigationVersion;
     loading = true;
 
-    const missing = keys.filter(weekKey => !weeksByKey[weekKey]);
-    const fetched = await Promise.all(
-      missing.map(weekKey => fetch(`${base}/api/week/${weekKey}`).then(response => response.json()))
-    );
-    if (version !== navigationVersion) return;
+    try {
+      const missing = keys.filter(weekKey => !weeksByKey[weekKey]);
+      const fetched = await Promise.all(
+        missing.map(weekKey => fetch(`${base}/api/week/${weekKey}`).then(response => {
+          if (!response.ok) throw new Error('Month load failed');
+          return response.json();
+        }))
+      );
+      if (version !== navigationVersion) return;
 
-    weeksByKey = { ...weeksByKey, ...Object.fromEntries(fetched.map(week => [week.week, week])) };
-    localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
-    loading = false;
+      weeksByKey = { ...weeksByKey, ...Object.fromEntries(fetched.map(week => [week.week, week])) };
+      localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
+    } catch {
+    } finally {
+      if (version === navigationVersion) loading = false;
+    }
   }
 
   $effect(() => {

@@ -1,12 +1,21 @@
 <script>
+  import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
 
   let { links, weekKey } = $props();
   let open = $state(false);
   let importResult = $state(null);
 
-  function isSafeUrl(url) {
-    return typeof url === 'string' && (/^https?:\/\//i.test(url) || (url.startsWith('/') && !url.startsWith('//')));
+  function isSafeUrl(u) {
+    if (typeof u !== 'string' || u === '') return false;
+    if (/[\u0000-\u001F]/.test(u)) return false;
+    if (u.startsWith('/')) return !/^[/\\]{2}/.test(u.slice(0, 2)) && !u.slice(0, 2).includes('\\');
+    try {
+      const protocol = new URL(u).protocol;
+      return protocol === 'http:' || protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 
   async function onImportFile(event) {
@@ -22,6 +31,7 @@
     importResult = response.ok
       ? `Imported. Backup saved to ${result.backup}.`
       : `Import failed: ${result.error}`;
+    if (response.ok) await invalidateAll();
     open = false;
   }
 </script>

@@ -13,6 +13,7 @@
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ counts: { [task.id]: delta } })
     });
+    if (!res.ok) return;
     const updated = await res.json();
     count = updated.counts[task.id] ?? 0;
   }

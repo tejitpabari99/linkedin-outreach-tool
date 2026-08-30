@@ -7,7 +7,15 @@
   let error = $state(null);
 
   function isSafeUrl(u) {
-    return typeof u === 'string' && (/^https?:\/\//i.test(u) || (u.startsWith('/') && !u.startsWith('//')));
+    if (typeof u !== 'string' || u === '') return false;
+    if (/[\u0000-\u001F]/.test(u)) return false;
+    if (u.startsWith('/')) return !/^[/\\]{2}/.test(u.slice(0, 2)) && !u.slice(0, 2).includes('\\');
+    try {
+      const protocol = new URL(u).protocol;
+      return protocol === 'http:' || protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 
   function validUrl(u) {

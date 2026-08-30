@@ -8,10 +8,16 @@
 
   let { weekKey, initialEntries } = $props();
   const store = getWeekStore();
+  const todayLocal = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: store.config.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
   const initialEntry = untrack(() => findLatestPendingPreview(initialEntries));
 
   let text = $state('');
-  let date = $state(new Date().toISOString().slice(0, 10));
+  let date = $state(todayLocal());
   let phase = $state(initialEntry ? 'preview' : 'idle');
   let activeEntry = $state(initialEntry);
   let entryWeekKey = $state(untrack(() => weekKey));
@@ -93,7 +99,7 @@
           class="date-input"
           type="date"
           bind:value={date}
-          max={new Date().toISOString().slice(0, 10)}
+          max={todayLocal()}
           disabled={phase === 'saving'}
         />
         {#if targetWeekLabel}<p class="retro-label">{targetWeekLabel}</p>{/if}
