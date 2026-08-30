@@ -12,8 +12,8 @@ preview the human must approve, and is proxied behind `cc-gateway` at `cc.tejitp
 gated by the existing gateway password.
 
 This folder holds the **design** for five sub-projects (SP1–SP5) — the approved brainstorm and five
-reconciled PRDs. No code has been written yet. Next steps in the pipeline are `dev-tasks` (generate
-TASKS.md per sub-project) and `dev-code` (implement).
+reconciled PRDs. SP1–SP5 have all been implemented, reviewed, and deployed; the app is live in
+production at `cc.tejitpabari.com/linkedin`.
 
 ## Sub-projects
 
@@ -23,7 +23,7 @@ TASKS.md per sub-project) and `dev-code` (implement).
 | `02-api-and-diary-parse/` | SP2 — API Routes + Diary Parse | 2 | Complete² | SP1 | HTTP surface over SP1 (entries, weeks, config, items, import/export) plus `parse.js`, the one outbound call to DeepSeek, with a strict untrusted-output validator. |
 | `03-week-view-ui/` | SP3 — Week View UI | 3 | Complete³ | SP1 + SP2 | The one-screen "this week" view: pinned links, metrics row, two lanes of task bars, diary box with Apply/Discard preview — plus the shared `weekStore` and layout slots SP4 mounts into. |
 | `04-history-and-checks/` | SP4 — History, Calendar, Log & Week-4 Honesty Check | 4 | Complete⁴ | SP1 + SP2 + SP3 | History strip, month calendar + next-week view, reverse-chronological log, retro-logging correctness fix, and D24's deterministic week-4 honesty check. |
-| `05-deploy-and-docs/` | SP5 — Deployment, Gateway Integration & Docs | 2 (parallel with SP2); final wiring after SP4 | On Hold (deprioritized by project owner; app runs standalone for now) | none for design; wiring depends on SP1–SP4 existing | Reverse-proxy route inside `cc-gateway`, base-path/`ORIGIN` contract, PM2 ecosystem file, `.env.example`, and all repo docs (`README.md`, `CLAUDE.md`, `config/README.md`). |
+| `05-deploy-and-docs/` | SP5 — Deployment, Gateway Integration & Docs | 2 (parallel with SP2); final wiring after SP4 | Complete⁵ | none for design; wiring depends on SP1–SP4 existing | Reverse-proxy route inside `cc-gateway`, base-path/`ORIGIN` contract, PM2 ecosystem file, `.env.example`, and all repo docs (`README.md`, `CLAUDE.md`, `config/README.md`). |
 
 ¹ SP1: implemented (13 tasks), reviewed via `dev-review` (initial verdict BLOCK on 2 Bug Hunter
 findings — a schema-validation gap in `readWeek` and a year-unaware ISO week-53 acceptance bug), both
@@ -56,6 +56,15 @@ which was fixed and re-verified. Final PASS, 361/361 tests passing, build clean,
 (root + `/week/[week]`; invalid week → 400). `weekFourCheck` copy and the dirty-week reconciliation
 were verified correct. See `04-history-and-checks/review.v1.md`.
 
+⁵ SP5: implemented and deployed (2026-08-30) — `cc-gateway`'s authenticated catch-all proxy route at
+`/linkedin`, the app's `paths.base = '/linkedin'` + `ORIGIN` contract, both apps' PM2 ecosystem
+files, and all repo docs. Live production origin confirmed to be this box (Cloudflare edge →
+`65.21.49.199:80` → `cc-gateway`, no nginx, no tunnel), with `/linkedin/` verified reachable
+end-to-end through the proxy. Four deployment-time bugs found and fixed (PM2 relative script paths,
+`PROJECT_ROOT` resolution under bundling, an infinite proxy/upstream redirect loop, and a proxy
+decompression header mismatch) — see `05-deploy-and-docs/PRD.md` §10. `pm2 startup` (reboot
+persistence) remains open, sudo-gated.
+
 **Post-implementation — combined deep + adversarial review, simulation & CI** (`COMBINED-REVIEW.v1.md`):
 after SP2–SP4 landed, the whole app was put through a cross-cutting adversarial review (two opus
 reviewers, three fix rounds) plus a degraded-mode real-user simulation and an edge-case sweep. This
@@ -65,7 +74,8 @@ Apply/Discard flow**, a UTC-vs-timezone entry-misfiling bug, home-page fragility
 week file, a link-URL open-redirect bypass (now blocked at both render sinks and all four server write
 paths), and acceptance of impossible calendar dates. Final adversarial scores **92/100 (integration)**
 and **93/100 (security)**; **387 tests passing**. A GitHub Actions CI workflow (`.github/workflows/ci.yml`)
-now runs the suite + build on Node 22 for every PR/push to `main`. (SP5 deployment remains On Hold.)
+now runs the suite + build on Node 22 for every PR/push to `main`. (SP5 has since been implemented and
+deployed — see footnote 5 above.)
 
 ## Status Legend
 
