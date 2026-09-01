@@ -91,6 +91,25 @@
     }
   }
 
+  async function showToday() {
+    const [year, monthNumber] = todayStr.split('-').map(Number);
+    const version = ++navigationVersion;
+    anchor = todayStr;
+    range = { start: todayStr, end: todayStr };
+    localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
+    loading = true;
+
+    try {
+      await fetchWeeks(weekKeysForMonth(year, monthNumber));
+      if (version !== navigationVersion) return;
+      localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
+    } catch {
+      // The current month and selection remain visible with any activity already cached.
+    } finally {
+      if (version === navigationVersion) loading = false;
+    }
+  }
+
   function selectDay(event, date) {
     if (event.shiftKey && anchor) {
       range = date < anchor
@@ -195,7 +214,10 @@
 <section class="flex flex-col gap-1.5 rounded-box border border-base-300 bg-base-100 p-2 text-base-content" aria-label="Activity calendar">
   <div class="flex items-center justify-between">
     <button class="btn btn-ghost btn-square btn-sm" type="button" onclick={() => showMonth(-1)} disabled={loading} aria-label="Previous month">←</button>
-    <p class="text-sm font-semibold" aria-live="polite">{monthLabel}</p>
+    <div class="flex items-center gap-2">
+      <p class="text-sm font-semibold" aria-live="polite">{monthLabel}</p>
+      <button class="btn btn-ghost btn-xs" type="button" onclick={showToday} disabled={loading}>Today</button>
+    </div>
     <button class="btn btn-ghost btn-square btn-sm" type="button" onclick={() => showMonth(1)} disabled={loading} aria-label="Next month">→</button>
   </div>
   <div class="grid grid-cols-7" aria-hidden="true">
