@@ -3,9 +3,10 @@ import { bumpLocalCount as bumpCount, setLocalMetric as setMetric } from '$lib/u
 
 export const WEEK_STORE_KEY = 'linkedin-outreach:weekStore';
 
-export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals = {}) {
+export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals = {}, initialActiveDate = '') {
   let week = $state(initialWeek);
   let weekKey = $state(initialWeek.week);
+  let activeDate = $state(initialActiveDate);
   let config = $state(initialConfig);
   let allTimeTotals = $state(initialAllTimeTotals ?? {});
   let historyVersion = $state(0);
@@ -35,6 +36,10 @@ export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals
     }
   }
 
+  function setActiveDate(nextDate) {
+    activeDate = nextDate;
+  }
+
   function replaceConfig(nextConfig) {
     config = nextConfig;
   }
@@ -58,6 +63,9 @@ export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals
     get weekKey() {
       return weekKey;
     },
+    get activeDate() {
+      return activeDate;
+    },
     get historyVersion() {
       return historyVersion;
     },
@@ -72,6 +80,7 @@ export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals
     },
     bumpLocalCount,
     setLocalMetric,
+    setActiveDate,
     replaceWeek,
     replaceConfig,
     replaceAllTimeTotals,

@@ -17,7 +17,7 @@
   const initialEntry = untrack(() => findLatestPendingPreview(initialEntries));
 
   let text = $state('');
-  let date = $state(todayLocal());
+  let date = $state(untrack(() => store.activeDate || todayLocal()));
   let phase = $state(initialEntry ? 'preview' : 'idle');
   let activeEntry = $state(initialEntry);
   let entryWeekKey = $state(untrack(() => weekKey));
@@ -99,7 +99,6 @@
           class="input input-bordered min-h-10 bg-base-100 text-sm text-base-content"
           type="date"
           bind:value={date}
-          max={todayLocal()}
           disabled={phase === 'saving'}
         />
         {#if targetWeekLabel}<p class="mt-1 text-xs text-base-content/60">{targetWeekLabel}</p>{/if}

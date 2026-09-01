@@ -51,6 +51,11 @@ describe('retro-logging ISO-boundary correctness (PRD §4.10)', () => {
     expect(dateToWeekKey('2026-08-24', 'America/Los_Angeles')).toBe('2026-W35');
   });
 
+  it('treats an unzoned noon timestamp as a calendar date in the configured timezone', () => {
+    expect(dateToWeekKey('2026-08-23T12:00:00', 'Pacific/Kiritimati')).toBe('2026-W34');
+    expect(dateToWeekKey('2026-08-24T12:00:00', 'Pacific/Kiritimati')).toBe('2026-W35');
+  });
+
   it('a same-week date picked at either end of the week resolves identically', () => {
     expect(dateToWeekKey('2026-08-17', TZ)).toBe(dateToWeekKey('2026-08-23', TZ));
   });

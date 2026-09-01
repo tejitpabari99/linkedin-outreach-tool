@@ -25,6 +25,39 @@
     `clip-path: inset(0 ${100 - progress}% 0 0); background: linear-gradient(90deg, ${stops.low.colorToken} 0%, ${stops.guide.colorToken} ${stops.guide.position}%, ${stops.complete.colorToken} 100%)`
   );
 
+  function localNoonIso(date, timezone) {
+    const [year, month, day] = date.split('-').map(Number);
+    const desiredWallClock = Date.UTC(year, month - 1, day, 12);
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    });
+    let instant = desiredWallClock;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const parts = Object.fromEntries(
+        formatter.formatToParts(new Date(instant)).map((part) => [part.type, part.value])
+      );
+      const renderedWallClock = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour),
+        Number(parts.minute),
+        Number(parts.second)
+      );
+      instant += desiredWallClock - renderedWallClock;
+    }
+
+    return new Date(instant).toISOString();
+  }
+
   let addOpen = $state(false);
   let removeOpen = $state(false);
   let addVersion = $state(0);
@@ -43,13 +76,19 @@
       while (pendingAdds > 0) {
         const batchSize = Math.min(pendingAdds, 50);
         const weekKey = store.weekKey;
+        const activeDate = store.activeDate;
+        const at = activeDate ? localNoonIso(activeDate, store.config.timezone) : undefined;
         pendingAdds -= batchSize;
 
         try {
           const response = await fetch(`${base}/api/week/${weekKey}/items`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ taskId: task.id, notes: Array(batchSize).fill(null) })
+            body: JSON.stringify({
+              taskId: task.id,
+              notes: Array(batchSize).fill(null),
+              ...(at ? { at } : {})
+            })
           });
           if (!response.ok) throw new Error('Item add failed');
 

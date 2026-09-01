@@ -24,7 +24,12 @@ function localCalendarParts(date, timezone) {
 }
 
 export function dateToWeekKey(date, timezone) {
-  const { y, m, d } = localCalendarParts(typeof date === 'string' ? new Date(`${date}T12:00:00Z`) : date, timezone);
+  const localDateTime = typeof date === 'string'
+    ? date.match(/^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)?$/)
+    : null;
+  const { y, m, d } = localDateTime
+    ? { y: Number(localDateTime[1]), m: Number(localDateTime[2]), d: Number(localDateTime[3]) }
+    : localCalendarParts(typeof date === 'string' ? new Date(date) : date, timezone);
   return isoWeekKeyFromUTCDate(new Date(Date.UTC(y, m - 1, d)));
 }
 
