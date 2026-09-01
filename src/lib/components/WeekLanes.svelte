@@ -28,7 +28,8 @@
       task: task.id,
       min: task.min,
       target: task.target,
-      linePct: task.linePct ?? 75
+      linePct: task.linePct ?? 75,
+      showPopup: task.showPopup ?? true
     }));
   }
 
@@ -67,8 +68,17 @@
       if (!Number.isInteger(row.linePct) || row.linePct < 1 || row.linePct > 100) {
         throw new Error(`Task at array index ${index} must have an integer "linePct" from 1 to 100.`);
       }
+      if (typeof row.showPopup !== 'boolean') {
+        throw new Error(`Task at array index ${index} must have a boolean "showPopup".`);
+      }
 
-      return { task: row.task, min: row.min, target: row.target, linePct: row.linePct };
+      return {
+        task: row.task,
+        min: row.min,
+        target: row.target,
+        linePct: row.linePct,
+        showPopup: row.showPopup
+      };
     });
 
     if (rows.length !== expected.length) {
@@ -130,7 +140,8 @@
           ...task,
           min: edit.min,
           target: edit.target,
-          linePct: edit.linePct
+          linePct: edit.linePct,
+          showPopup: edit.showPopup
         };
       })
     };
@@ -182,7 +193,7 @@
   {#key editorVersion}
     <JsonListEditor
       title={`Edit ${activeLane.label} lane`}
-      help="min and target are weekly quotas. linePct is an independent getting-warmer guide on the progress bar. Task ids and order cannot be changed."
+      help="min and target are weekly quotas. linePct is an independent getting-warmer guide on the progress bar. showPopup controls whether + opens the optional note popup. Task ids and order cannot be changed."
       initial={editorInitial}
       parse={parseRows}
       onSave={saveLane}
