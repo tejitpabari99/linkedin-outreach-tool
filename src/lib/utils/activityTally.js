@@ -19,7 +19,7 @@ function localDate(timestamp, formatter) {
 }
 
 function ensureDay(index, date) {
-  return index[date] ??= { date, counts: {}, postItems: [] };
+  return index[date] ??= { date, counts: {}, noteItems: [] };
 }
 
 function addCount(day, taskId, count) {
@@ -35,16 +35,15 @@ function safeLegacyLink(link) {
   };
 }
 
-function postItem(item) {
-  const note = typeof item.note === 'string' ? item.note : null;
+function noteItem(item) {
+  const note = typeof item.note === 'string' && item.note.trim() ? item.note : null;
   const link = safeLegacyLink(item.link);
-  const noteUrl = note && isAllowedUrl(note) ? note : null;
+  if (!note && !link) return null;
   return {
     id: item.id,
+    taskId: item.taskId,
     note,
-    link,
-    text: note ?? link?.label ?? link?.url ?? '',
-    href: noteUrl ?? link?.url ?? null
+    link
   };
 }
 
@@ -74,7 +73,8 @@ export function buildActivityIndex(weeks = [], config = {}) {
       if (typeof item.id === 'string') seenItemIds.add(item.id);
       const day = ensureDay(index, date);
       addCount(day, item.taskId, 1);
-      if (item.taskId === 'post') day.postItems.push(postItem(item));
+      const detail = noteItem(item);
+      if (detail) day.noteItems.push(detail);
     }
   }
 
@@ -85,7 +85,7 @@ function cloneDay(day, date) {
   return {
     date,
     counts: { ...day?.counts },
-    postItems: (day?.postItems ?? []).map(item => ({
+    noteItems: (day?.noteItems ?? []).map(item => ({
       ...item,
       link: item.link ? { ...item.link } : null
     }))
@@ -108,4 +108,15 @@ export function activityRange(index, startDate, endDate) {
     rows.push(activityDay(index, cursor.toISOString().slice(0, 10)));
   }
   return rows;
+}
+
+export function activityRangeAggregate(index, startDate, endDate) {
+  const aggregate = { counts: {}, noteItems: [] };
+  for (const day of activityRange(index, startDate, endDate)) {
+    for (const [taskId, count] of Object.entries(day.counts)) {
+      aggregate.counts[taskId] = (aggregate.counts[taskId] ?? 0) + count;
+    }
+    aggregate.noteItems.push(...day.noteItems.map(item => ({ ...item, date: day.date })));
+  }
+  return aggregate;
 }

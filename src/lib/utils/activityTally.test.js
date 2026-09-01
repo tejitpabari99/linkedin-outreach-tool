@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { activityDay, activityRange, buildActivityIndex } from './activityTally.js';
+import {
+  activityDay,
+  activityRange,
+  activityRangeAggregate,
+  buildActivityIndex
+} from './activityTally.js';
 
 const config = {
   timezone: 'America/Los_Angeles',
@@ -72,23 +77,48 @@ describe('buildActivityIndex', () => {
     expect(activityDay(index, '2026-08-31').counts.invites).toBeUndefined();
   });
 
-  it('keeps post notes and legacy links with their local day and classifies URLs safely', () => {
+  it('keeps notes for non-post tasks with their task and raw text', () => {
     const index = buildActivityIndex([{
       items: [
-        { id: 'plain', taskId: 'post', at: '2026-08-25T19:00:00Z', note: 'javascript:alert(1)' },
-        { id: 'same-a', taskId: 'post', at: '2026-08-25T20:00:00Z', note: 'Same text' },
-        { id: 'same-b', taskId: 'post', at: '2026-08-25T21:00:00Z', note: 'Same text' },
-        { id: 'legacy', taskId: 'post', at: '2026-08-25T22:00:00Z', link: { label: 'LinkedIn', url: 'https://linkedin.com/feed/' } }
+        { id: 'comment', taskId: 'comments', at: '2026-08-25T19:00:00Z', note: 'Thoughtful reply' },
+        { id: 'unsafe', taskId: 'invites', at: '2026-08-25T20:00:00Z', note: 'javascript:alert(1)' }
       ]
     }], config);
 
-    const { postItems } = activityDay(index, '2026-08-25');
-    expect(postItems.map(item => item.id)).toEqual(['plain', 'same-a', 'same-b', 'legacy']);
-    expect(postItems[0]).toMatchObject({ note: 'javascript:alert(1)', href: null });
-    expect(postItems[3]).toMatchObject({
-      link: { label: 'LinkedIn', url: 'https://linkedin.com/feed/' },
-      href: 'https://linkedin.com/feed/'
+    expect(activityDay(index, '2026-08-25').noteItems).toEqual([
+      { id: 'comment', taskId: 'comments', note: 'Thoughtful reply', link: null },
+      { id: 'unsafe', taskId: 'invites', note: 'javascript:alert(1)', link: null }
+    ]);
+  });
+
+  it('counts a bare manual item without adding a note line', () => {
+    const index = buildActivityIndex([{
+      items: [{ id: 'bare', taskId: 'dms', at: '2026-08-25T19:00:00Z' }]
+    }], config);
+
+    expect(activityDay(index, '2026-08-25')).toEqual({
+      date: '2026-08-25',
+      counts: { dms: 1 },
+      noteItems: []
     });
+  });
+
+  it('keeps legacy post links with their local day', () => {
+    const index = buildActivityIndex([{
+      items: [{
+        id: 'legacy',
+        taskId: 'post',
+        at: '2026-08-25T22:00:00Z',
+        link: { label: 'LinkedIn', url: 'https://linkedin.com/feed/' }
+      }]
+    }], config);
+
+    expect(activityDay(index, '2026-08-25').noteItems).toEqual([{
+      id: 'legacy',
+      taskId: 'post',
+      note: null,
+      link: { label: 'LinkedIn', url: 'https://linkedin.com/feed/' }
+    }]);
   });
 });
 
@@ -99,9 +129,9 @@ describe('activityDay and activityRange', () => {
   ], config);
 
   it('returns a zero tally for a single day with no activity', () => {
-    expect(activityDay(index, '2026-08-31')).toEqual({ date: '2026-08-31', counts: {}, postItems: [] });
+    expect(activityDay(index, '2026-08-31')).toEqual({ date: '2026-08-31', counts: {}, noteItems: [] });
     expect(activityRange(index, '2026-08-31', '2026-08-31')).toEqual([
-      { date: '2026-08-31', counts: {}, postItems: [] }
+      { date: '2026-08-31', counts: {}, noteItems: [] }
     ]);
   });
 
@@ -118,6 +148,21 @@ describe('activityDay and activityRange', () => {
       {},
       { dms: 1 },
       {}
+    ]);
+  });
+
+  it('sums each task across the full range', () => {
+    const aggregate = activityRangeAggregate(index, '2026-08-30', '2026-09-02');
+
+    expect(aggregate.counts).toEqual({ comments: 2, dms: 1 });
+    expect(aggregate.noteItems).toEqual([
+      {
+        id: 'd1',
+        taskId: 'dms',
+        note: 'Follow-up',
+        link: null,
+        date: '2026-09-01'
+      }
     ]);
   });
 });
