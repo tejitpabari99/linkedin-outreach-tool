@@ -19,6 +19,7 @@
   let text = $state('');
   let date = $state(untrack(() => store.activeDate || todayLocal()));
   let phase = $state(initialEntry ? 'preview' : 'idle');
+  let error = $state('');
   let activeEntry = $state(initialEntry);
   let entryWeekKey = $state(untrack(() => weekKey));
   const targetWeekLabel = $derived.by(() => {
@@ -35,8 +36,9 @@
   }
 
   async function save() {
-    if (!date || !text.trim()) return;
+    if (phase === 'saving' || !date || !text.trim()) return;
     phase = 'saving';
+    error = '';
     try {
       const response = await fetch(`${base}/api/entry`, {
         method: 'POST',
@@ -44,43 +46,28 @@
         body: JSON.stringify({ date, text })
       });
       if (!response.ok) throw new Error('Entry save failed');
-      const { week: landedWeek, entry } = await response.json();
-      if (!entry || typeof entry.parseStatus !== 'string') throw new Error('Invalid entry response');
+
+      const result = await response.json();
+      if (result.status !== 'ok') throw new Error(result.reason ?? 'Entry parse failed');
+      if (!result.entry || typeof result.entry.parseStatus !== 'string') {
+        throw new Error('Invalid entry response');
+      }
+
       text = '';
-      activeEntry = entry;
-      entryWeekKey = landedWeek;
-      phase = entry.parseStatus === 'failed' ? 'failed' : 'preview';
+      activeEntry = result.entry;
+      entryWeekKey = result.week;
+      phase = 'preview';
     } catch {
       phase = 'idle';
-    }
-  }
-
-  async function reparse() {
-    phase = 'saving';
-    try {
-      const response = await fetch(
-        `${base}/api/week/${entryWeekKey}/entry/${activeEntry.id}/reparse`,
-        { method: 'POST' }
-      );
-      if (!response.ok) throw new Error('Entry reparse failed');
-      const { entry } = await response.json();
-      if (!entry || typeof entry.parseStatus !== 'string') throw new Error('Invalid entry response');
-      activeEntry = entry;
-      phase = entry.parseStatus === 'failed' ? 'failed' : 'preview';
-    } catch {
-      phase = 'failed';
+      error = "Couldn't read that";
     }
   }
 
   function onResolved() {
     activeEntry = null;
     entryWeekKey = weekKey;
+    error = '';
     phase = 'idle';
-  }
-
-  function retry(event) {
-    event.preventDefault();
-    reparse();
   }
 </script>
 
@@ -107,19 +94,16 @@
         {#if phase === 'saving'}<span class="loading loading-spinner loading-xs motion-reduce:animate-none"></span> Saving…{:else}Save{/if}
       </button>
     </div>
+    {#if error}
+      <p class="text-sm text-error" role="alert">
+        {error} — <button class="link link-hover text-error" type="button" onclick={save}>try again</button>.
+      </p>
+    {/if}
   {:else if phase === 'preview'}
     <EntryPreview
       entry={activeEntry}
       weekKey={entryWeekKey}
       onResolved={onResolved}
-      onReparse={reparse}
     />
-  {:else if phase === 'failed'}
-    <div class="rounded-box border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-base-content/70">
-      <p>
-        Saved — couldn't read it automatically. The counters still work, or
-        <a class="link link-hover inline-flex min-h-10 items-center text-primary" href="#retry" onclick={retry}>try again</a>.
-      </p>
-    </div>
   {/if}
 </div>
