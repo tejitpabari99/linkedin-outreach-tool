@@ -10,6 +10,9 @@
   const store = getWeekStore();
 
   const count = $derived(store.week.counts[task.id] ?? 0);
+  const removableItems = $derived(
+    (store.week.items ?? []).filter((item) => item.taskId === task.id)
+  );
   const progress = $derived(progressPct(count, task.target));
   const guide = $derived(middleStopPosition(task.linePct));
   const stops = $derived(gradientStops(task.linePct));
@@ -66,7 +69,9 @@
     }
   }
 
-  function openRemove() {
+  function tapRemove() {
+    if (removableItems.length === 0) return;
+
     addOpen = false;
     removeVersion += 1;
     removeOpen = true;
@@ -83,8 +88,8 @@
     <button
       class="btn btn-square btn-sm h-10 min-h-10 w-10 min-w-10 shrink-0 text-lg"
       type="button"
-      onclick={openRemove}
-      disabled={count === 0}
+      onclick={tapRemove}
+      disabled={count === 0 || removableItems.length === 0}
       aria-label={`Remove logged ${visual.short}`}
     >−</button>
 
