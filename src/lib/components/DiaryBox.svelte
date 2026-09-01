@@ -86,6 +86,7 @@
           class="input input-bordered min-h-10 bg-base-100 text-sm text-base-content"
           type="date"
           bind:value={date}
+          max={todayLocal()}
           disabled={phase === 'saving'}
         />
         {#if targetWeekLabel}<p class="mt-1 text-xs text-base-content/60">{targetWeekLabel}</p>{/if}

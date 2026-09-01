@@ -167,13 +167,19 @@ describe('appendItems', () => {
     expect(input).toEqual(before);
   });
 
-  it('stamps every item with an explicitly supplied backfill timestamp', () => {
-    const at = '2026-08-15T19:00:00.000Z';
+  it('stamps every item with an explicitly supplied timestamp inside the target week', () => {
+    const at = '2026-08-25T19:00:00.000Z';
     const { items } = appendItems(baseWeek(), {
       taskId: 'comments', notes: ['first', 'second'], at
     });
 
     expect(items.map(item => item.at)).toEqual([at, at]);
+  });
+
+  it('rejects an explicitly supplied timestamp outside the target week', () => {
+    expect(() => appendItems(baseWeek(), {
+      taskId: 'comments', notes: ['prior week'], at: '2026-08-17T19:00:00.000Z'
+    })).toThrow(WeekError);
   });
 
   it.each(['not-a-date', '2026-02-30T19:00:00.000Z', null, 123])(

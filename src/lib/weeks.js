@@ -359,6 +359,16 @@ export function appendItems(week, { taskId, notes, at }) {
   if (!isValidIsoTimestamp(itemAt)) {
     throw new WeekError('at must be a valid ISO timestamp string', week.week);
   }
+  if (at !== undefined) {
+    const atDate = new Date(itemAt).toISOString().slice(0, 10);
+    const { start, end } = weekKeyToRange(week.week);
+    if (atDate < start || atDate > end) {
+      throw new WeekError(
+        `at date "${atDate}" is outside target week ${week.week} (${start} to ${end})`,
+        week.week
+      );
+    }
+  }
   if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
     throw new WeekError('notes must be an array containing 1 to 50 strings', week.week);
   }
