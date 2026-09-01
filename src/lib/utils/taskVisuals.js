@@ -15,11 +15,11 @@ export const TASK_VISUALS = Object.freeze({
 });
 
 const TASK_COLOR_CLASSES = Object.freeze({
-  post: Object.freeze({ text: 'text-secondary', background: 'bg-secondary' }),
-  comments: Object.freeze({ text: 'text-accent', background: 'bg-accent' }),
-  invites: Object.freeze({ text: 'text-info', background: 'bg-info' }),
-  dms: Object.freeze({ text: 'text-primary', background: 'bg-primary' }),
-  call_ask: Object.freeze({ text: 'text-warning', background: 'bg-warning' })
+  post: Object.freeze({ text: 'text-[var(--lot-task-post)]', background: 'bg-[var(--lot-task-post)]' }),
+  comments: Object.freeze({ text: 'text-[var(--lot-task-comments)]', background: 'bg-[var(--lot-task-comments)]' }),
+  invites: Object.freeze({ text: 'text-[var(--lot-task-invites)]', background: 'bg-[var(--lot-task-invites)]' }),
+  dms: Object.freeze({ text: 'text-[var(--lot-task-dms)]', background: 'bg-[var(--lot-task-dms)]' }),
+  call_ask: Object.freeze({ text: 'text-[var(--lot-task-call)]', background: 'bg-[var(--lot-task-call)]' })
 });
 
 const DEFAULT_COLOR_CLASSES = Object.freeze({

@@ -3,3 +3,26 @@
 @plugin "daisyui" {
   themes: dim --default, nord;
 }
+
+:root,
+[data-theme="dim"] {
+  --lot-grad-low: #162f32;
+  --lot-grad-guide: #25233d;
+  --lot-grad-done: #342817;
+  --lot-task-post: #c08a91;
+  --lot-task-comments: #aaa0c7;
+  --lot-task-invites: #77aaa8;
+  --lot-task-dms: #7f9fbe;
+  --lot-task-call: #c1a66b;
+}
+
+[data-theme="nord"] {
+  --lot-grad-low: #8fb8b4;
+  --lot-grad-guide: #a8a7c7;
+  --lot-grad-done: #c5ad72;
+  --lot-task-post: #7d555e;
+  --lot-task-comments: #5c537a;
+  --lot-task-invites: #33666b;
+  --lot-task-dms: #42617c;
+  --lot-task-call: #735927;
+}

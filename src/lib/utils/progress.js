@@ -5,9 +5,9 @@ export const GRADIENT_COLOR_ROLES = Object.freeze({
 });
 
 const GRADIENT_COLOR_TOKENS = Object.freeze({
-  low: 'var(--color-info)',
-  guide: 'var(--color-accent)',
-  complete: 'var(--color-warning)'
+  low: 'var(--lot-grad-low)',
+  guide: 'var(--lot-grad-guide)',
+  complete: 'var(--lot-grad-done)'
 });
 
 function clampPercent(value) {
