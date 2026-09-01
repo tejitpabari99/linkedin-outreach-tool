@@ -30,10 +30,15 @@ function structuralCheckWeek(w) {
       if (typeof item?.taskId !== 'string') problems.push(`"items[${index}].taskId" must be a string`);
       if (typeof item?.at !== 'string') problems.push(`"items[${index}].at" must be a string`);
       if (item !== null && typeof item === 'object' && Object.hasOwn(item, 'note')) {
-        if (typeof item.note !== 'string') {
-          problems.push(`"items[${index}].note" must be a string`);
-        } else if (item.note.trim().length === 0 || item.note.length > 4000) {
-          problems.push(`"items[${index}].note" must be non-empty after trimming and at most 4000 characters`);
+        if (item.note !== null && typeof item.note !== 'string') {
+          problems.push(`"items[${index}].note" must be a string or null`);
+        } else if (typeof item.note === 'string') {
+          const trimmed = item.note.trim();
+          if (trimmed.length === 0) {
+            item.note = null;
+          } else if (trimmed.length > 4000) {
+            problems.push(`"items[${index}].note" must be non-empty after trimming and at most 4000 characters`);
+          }
         }
       }
       const link = item?.link;

@@ -121,7 +121,7 @@ describe('export routes', () => {
     expect(mocks.emptyWeek).not.toHaveBeenCalled();
   });
 
-  it('preserves safe, unsafe-like, plain notes and legacy links across export-import-export', async () => {
+  it('preserves noted, null-note, and absent-note items across export-import-export', async () => {
     const richWeek = {
       ...week35,
       items: [
@@ -138,7 +138,11 @@ describe('export routes', () => {
           note: '  comment on Priya’s post  ', link: null
         },
         {
-          id: 'legacy-link', taskId: 'post', at: '2026-08-29T20:03:00.000Z',
+          id: 'bare-null', taskId: 'post', at: '2026-08-29T20:03:00.000Z',
+          note: null, link: null
+        },
+        {
+          id: 'legacy-link', taskId: 'post', at: '2026-08-29T20:04:00.000Z',
           link: { url: 'https://example.test/legacy', label: 'Legacy post' }
         }
       ]
@@ -160,6 +164,7 @@ describe('export routes', () => {
       'https://www.linkedin.com/posts/example',
       'javascript:alert(1)',
       '  comment on Priya’s post  ',
+      null,
       undefined
     ]);
   });

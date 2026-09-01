@@ -118,21 +118,25 @@ describe.sequential('POST /api/import real-disk safety', () => {
     expect(actualFs.readFileSync(livePath)).toEqual(before);
   });
 
-  it('rejects an invalid note before creating a backup or changing original bytes', async () => {
+  it('normalizes a whitespace-only note to null while preserving backup safety', async () => {
     const original = week('2026-W35', 2);
     diskWeeks.writeWeek('2026-W35', original);
     const livePath = join(dataDir, '2026-W35.json');
-    const before = actualFs.readFileSync(livePath);
-    const invalid = week('2026-W35', 99);
-    invalid.items.push({
+    const imported = week('2026-W35', 99);
+    imported.items.push({
       id: 'item-1', taskId: 'post', at: '2026-08-29T20:00:00.000Z', note: '   ', link: null
     });
 
-    const response = await diskPost({ request: requestWith(invalid) });
+    const response = await diskPost({ request: requestWith(imported) });
 
-    expect(response.status).toBe(400);
-    expect(actualFs.existsSync(join(dataDir, '.backups'))).toBe(false);
-    expect(actualFs.readFileSync(livePath)).toEqual(before);
+    expect(response.status).toBe(200);
+    const persisted = JSON.parse(actualFs.readFileSync(livePath, 'utf8'));
+    expect(persisted.items[0].note).toBeNull();
+    const backupDirs = actualFs.readdirSync(join(dataDir, '.backups'));
+    const backup = JSON.parse(actualFs.readFileSync(
+      join(dataDir, '.backups', backupDirs[0], '2026-W35.json'), 'utf8'
+    ));
+    expect(backup).toEqual(original);
   });
 
   it('rejects a mismatched bundle key before writing any week or backup', async () => {

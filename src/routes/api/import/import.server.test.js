@@ -161,8 +161,7 @@ describe('POST /api/import', () => {
   });
 
   it.each([
-    ['non-string note', { note: 42 }, '"items[0].note" must be a string'],
-    ['blank note', { note: '   ' }, '"items[0].note" must be non-empty after trimming and at most 4000 characters'],
+    ['non-string note', { note: 123 }, '"items[0].note" must be a string or null'],
     ['oversized note', { note: 'x'.repeat(4001) }, '"items[0].note" must be non-empty after trimming and at most 4000 characters'],
     ['non-string id', { id: 1 }, '"items[0].id" must be a string'],
     ['non-string taskId', { taskId: null }, '"items[0].taskId" must be a string'],
@@ -183,16 +182,34 @@ describe('POST /api/import', () => {
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
-  it('imports legacy no-note items and historical orphan task ids unchanged', async () => {
+  it('imports null-note and absent-note bare items unchanged', async () => {
     const imported = week('2026-W35');
-    const legacy = item({ taskId: 'removed_task', link: { url: 'https://example.test/legacy', label: 'Legacy' } });
-    delete legacy.note;
-    imported.items.push(legacy);
+    const nullNote = item({ id: 'null-note', note: null });
+    const absentNote = item({
+      id: 'absent-note', taskId: 'removed_task',
+      link: { url: 'https://example.test/legacy', label: 'Legacy' }
+    });
+    delete absentNote.note;
+    imported.items.push(nullNote, absentNote);
 
     const result = await responseBody(await POST({ request: requestWith(imported) }));
 
     expect(result.status).toBe(200);
     expect(mocks.writeWeek).toHaveBeenCalledWith('2026-W35', imported);
+  });
+
+  it('normalizes empty and whitespace-only notes to null before writing', async () => {
+    const imported = week('2026-W35');
+    imported.items.push(
+      item({ id: 'empty-note', note: '' }),
+      item({ id: 'whitespace-note', note: '  \t\n  ' })
+    );
+
+    const result = await responseBody(await POST({ request: requestWith(imported) }));
+
+    expect(result.status).toBe(200);
+    const written = mocks.writeWeek.mock.calls[0][1];
+    expect(written.items.map(entry => entry.note)).toEqual([null, null]);
   });
 
   it('normalizes old bundle config before backup and persists explicit linePct defaults', async () => {
