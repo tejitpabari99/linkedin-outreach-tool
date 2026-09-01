@@ -9,7 +9,7 @@
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'light' || savedTheme === 'dark') theme = savedTheme;
       } catch (error) {}
-      document.documentElement.dataset.theme = theme === 'light' ? 'cupcake' : 'synthwave';
+      document.documentElement.dataset.theme = theme === 'light' ? 'nord' : 'dim';
     </script>
     %sveltekit.head%
   </head>

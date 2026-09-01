@@ -182,7 +182,7 @@
 
   function toggleTheme() {
     dark = !dark;
-    document.documentElement.dataset.theme = dark ? 'synthwave' : 'cupcake';
+    document.documentElement.dataset.theme = dark ? 'dim' : 'nord';
     try {
       localStorage.setItem('theme', dark ? 'dark' : 'light');
     } catch {}
@@ -194,7 +194,7 @@
     } catch {
       dark = true;
     }
-    document.documentElement.dataset.theme = dark ? 'synthwave' : 'cupcake';
+    document.documentElement.dataset.theme = dark ? 'dim' : 'nord';
   });
 </script>
 
