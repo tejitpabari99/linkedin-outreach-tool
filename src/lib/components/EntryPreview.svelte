@@ -43,9 +43,15 @@
         method: 'POST'
       });
       if (!response.ok) throw new Error(`Apply failed: ${response.status}`);
+      const { entry: appliedEntry, alreadyApplied } = await response.json();
       if (isLiveWeek) {
         const truth = await (await fetch(`${base}/api/week/${weekKey}`)).json();
         store.replaceWeek(truth);
+      }
+      if (alreadyApplied === false) {
+        for (const [taskId, delta] of Object.entries(appliedEntry.applied?.counts ?? {})) {
+          store.adjustAllTimeTotal(taskId, delta);
+        }
       }
       store.markWeekDirty(weekKey);
       onResolved(weekKey);
