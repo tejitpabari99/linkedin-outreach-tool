@@ -2,8 +2,45 @@ import { describe, expect, it } from 'vitest';
 import { sumAllTimeTotals } from './allTimeTotals.js';
 
 const taskIds = ['post', 'comments', 'invites', 'dms', 'call_ask'];
+const config = { tasks: taskIds.map(id => ({ id })) };
 
 describe('sumAllTimeTotals', () => {
+  describe('config-first production form', () => {
+    it('returns every configured task at zero for no weeks', () => {
+      expect(sumAllTimeTotals(config, [])).toEqual({
+        post: 0,
+        comments: 0,
+        invites: 0,
+        dms: 0,
+        call_ask: 0
+      });
+    });
+
+    it('sums known counts once across manual, diary, and mixed weeks and excludes orphans', () => {
+      const weeks = [
+        { counts: { post: 1, orphan: 99 }, items: [{ taskId: 'post' }], entries: [] },
+        { counts: { comments: 3 }, items: [], entries: [{ applied: { counts: { comments: 3 } } }] },
+        {
+          counts: { invites: 2, dms: 4, call_ask: 1, orphan: 100 },
+          items: [{ taskId: 'invites' }],
+          entries: [{ applied: { counts: { dms: 4, call_ask: 1 } } }]
+        }
+      ];
+
+      expect(sumAllTimeTotals(config, weeks)).toEqual({
+        post: 1,
+        comments: 3,
+        invites: 2,
+        dms: 4,
+        call_ask: 1
+      });
+    });
+
+    it.each([{}, { tasks: null }])('returns an empty object for malformed config %#', malformedConfig => {
+      expect(sumAllTimeTotals(malformedConfig, [{ counts: { post: 10 } }])).toEqual({});
+    });
+  });
+
   it('returns every task at zero for no weeks', () => {
     expect(sumAllTimeTotals([], taskIds)).toEqual({
       post: 0,
