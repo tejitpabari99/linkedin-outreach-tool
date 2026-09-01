@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   emptyWeek, bumpCount, setMetric, appendEntry, applyEntryToWeek,
   discardEntry, markEntryFailed, removeEntry, appendItem, attachItemLink,
-  appendItems, removeItems, WeekError, MAX_APPLY_DELTA
+  appendItems, removeItems, setItemNote, WeekError, MAX_APPLY_DELTA
 } from './weeks.js';
 
 const CONFIG = {
@@ -167,17 +167,72 @@ describe('appendItems', () => {
     expect(input).toEqual(before);
   });
 
+  it.each([null, undefined, '', '   '])('appends a bare item for empty note value %j', (note) => {
+    const input = baseWeek();
+    const before = structuredClone(input);
+
+    const { week, items } = appendItems(input, { taskId: 'comments', notes: [note] });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ taskId: 'comments', note: null, link: null });
+    expect(week.items).toEqual(items);
+    expect(week.counts.comments).toBe(1);
+    expect(input).toEqual(before);
+  });
+
+  it('appends noted and bare items in one batch and increments for both', () => {
+    const { week, items } = appendItems(baseWeek(), {
+      taskId: 'comments', notes: [' hi ', null]
+    });
+
+    expect(items.map(item => item.note)).toEqual(['hi', null]);
+    expect(week.counts.comments).toBe(2);
+  });
+
   it.each([
     ['an empty batch', []],
     ['more than 50 notes', Array.from({ length: 51 }, (_, index) => `note ${index}`)],
-    ['a blank note', ['valid', '   ']],
-    ['a non-string note', ['valid', 42]],
+    ['a non-string non-null note', ['valid', 42]],
     ['a note over 4000 characters', ['valid', 'x'.repeat(4001)]]
   ])('rejects %s without a partial result or input mutation', (_label, notes) => {
     const input = baseWeek();
     const before = structuredClone(input);
     expect(() => appendItems(input, { taskId: 'comments', notes })).toThrow(WeekError);
     expect(input).toEqual(before);
+  });
+});
+
+describe('setItemNote', () => {
+  function weekWithItem() {
+    const week = baseWeek();
+    week.items.push({
+      id: 'comment-1', taskId: 'comments', at: '2026-09-01T01:00:00.000Z', note: null, link: null
+    });
+    return week;
+  }
+
+  it('sets a trimmed note without mutating the input', () => {
+    const input = weekWithItem();
+    const before = structuredClone(input);
+    const updated = setItemNote(input, 'comment-1', '  hello  ');
+
+    expect(updated.items[0].note).toBe('hello');
+    expect(updated).not.toBe(input);
+    expect(input).toEqual(before);
+  });
+
+  it('clears a note with null', () => {
+    const input = weekWithItem();
+    input.items[0].note = 'hello';
+
+    expect(setItemNote(input, 'comment-1', null).items[0].note).toBeNull();
+  });
+
+  it.each([
+    ['unknown item id', 'missing', 'hello'],
+    ['a note over 4000 characters', 'comment-1', 'x'.repeat(4001)]
+  ])('rejects %s', (_case, itemId, note) => {
+    expect(() => setItemNote(weekWithItem(), itemId, note)).toThrow(WeekError);
   });
 });
 

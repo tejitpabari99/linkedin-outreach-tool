@@ -88,11 +88,11 @@ Week files remain schema `version: 1`. The additive SP6 item shape is:
 { "id": "uuid", "taskId": "comments", "at": "2026-09-01T05:10:00.000Z", "note": "Comment on Priya's post", "link": null }
 ```
 
-`note` is optional for backward compatibility. New SP6 manual items contain a trimmed, non-empty
-note of at most 4,000 characters; each note is one concrete item and one count increment. Legacy
-items without `note` remain valid, and their nullable `link` object (`{ "url", "label" }`) is
-preserved for old week files and the existing link-attachment flow. This additive field does not
-require a week-version bump or a migration of historical files.
+`note` is optional and nullable. A bare manual increment stores `note: null`; an entered note is
+trimmed, non-empty, and at most 4,000 characters. Each item is one concrete count increment,
+regardless of whether it has a note. Legacy items without `note` remain valid, and their nullable
+`link` object (`{ "url", "label" }`) is preserved for old week files and the existing link-attachment
+flow. This additive field does not require a week-version bump or a migration of historical files.
 
 ## Validation rules (hard errors, not warnings)
 

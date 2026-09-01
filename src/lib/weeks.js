@@ -343,12 +343,14 @@ export function appendItems(week, { taskId, notes }) {
   }
 
   const normalizedNotes = notes.map((note, index) => {
+    if (note === null || note === undefined) return null;
     if (typeof note !== 'string') {
-      throw new WeekError(`notes[${index}] must be a string`, week.week);
+      throw new WeekError(`notes[${index}] must be a string, null, or undefined`, week.week);
     }
     const trimmed = note.trim();
-    if (trimmed.length === 0 || trimmed.length > 4000) {
-      throw new WeekError(`notes[${index}] must contain 1 to 4000 characters after trimming`, week.week);
+    if (trimmed.length === 0) return null;
+    if (trimmed.length > 4000) {
+      throw new WeekError(`notes[${index}] must contain at most 4000 characters after trimming`, week.week);
     }
     return trimmed;
   });
@@ -397,6 +399,25 @@ export function removeItems(week, { taskId, itemIds }) {
   next.items = next.items.filter(item => !selectedIds.has(item.id));
   next.counts[taskId] = count - itemIds.length;
   return { week: next, removedIds: [...itemIds] };
+}
+
+export function setItemNote(week, itemId, note) {
+  let normalizedNote = null;
+  if (note !== null) {
+    if (typeof note !== 'string') {
+      throw new WeekError('note must be a non-empty string or null', week.week);
+    }
+    normalizedNote = note.trim();
+    if (normalizedNote.length === 0 || normalizedNote.length > 4000) {
+      throw new WeekError('note must contain 1 to 4000 characters after trimming, or be null', week.week);
+    }
+  }
+
+  const next = structuredClone(week);
+  const item = next.items.find(i => i.id === itemId);
+  if (!item) throw new WeekError(`Item "${itemId}" not found in week ${week.week}`, week.week);
+  item.note = normalizedNote;
+  return next;
 }
 
 export function attachItemLink(week, itemId, link) {
