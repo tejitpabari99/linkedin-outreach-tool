@@ -84,12 +84,12 @@ click/shift-range across months + the read-only day/range tally; import refresh;
 - 2026-08-31 — 4-persona review (NEEDS_CHANGES), fix loop (M1–M3 + notes), Bug Hunter confirming re-review
   (found + fixed M-A weekKey lockstep). 483 tests green, build clean, SSR verified. Synthesized by the
   orchestrator. Awaiting human visual sign-off (Task 29) before merge.
-- 2026-09-01 — **Iteration 1** (owner feedback on the branch; PRD §10). Calmer **nord/dim** theme replacing
-  cupcake/synthwave + muted teal/indigo/gold gradient and calm task-symbol colors; larger/most-prominent
-  all-time totals and slightly larger this-week goals; calendar **Today** button; **`+` always counts on
-  click** (bare item POST, optional link popup gated by a new per-task **`showPopup`** config field; note
-  becomes optional/bare-item; Discard/Escape never undoes the +1); **`−`** opens the remove popup only when
-  removable manual items exist; lane editor exposes `showPopup`. Focused Bug Hunter re-review → 2 fixes
-  (note-Save now marks the week dirty so "What happened" refreshes; rapid `+` taps serialize into ≤50-item
-  batches so none are dropped and there's no same-week write race). **502 tests green**, build clean, SSR
-  verified (`dim` default, no neon). Still awaiting human visual sign-off before merge.
+- 2026-09-01 — **Iteration 2** (owner second-pass feedback; PRD §11). "What happened" now shows the note
+  text for **every** task + a **range aggregate**; an **active logging date** above the lanes drives the
+  week/logging (backfill/front-fill, item `at`-stamp); the calendar marks active days **green**, a single
+  day-click sets the active date, and **Last/This month · Last/This week** preset buttons auto-select a
+  range; the **diary no longer saves on a failed parse** (parse-first server-side; inline red error + try
+  again, text kept). Backend: item `at` + `POST /api/entry` parse-first (SP2 contract change, tests
+  updated). Focused Bug Hunter re-review → 1 must-fix (item ops must derive the target week from
+  `activeDate`, not the possibly-desynced `store.weekKey`; + an `appendItems` at-within-week guard) —
+  fixed. **518 tests green**, build clean, SSR verified. Still awaiting human visual sign-off before merge.
