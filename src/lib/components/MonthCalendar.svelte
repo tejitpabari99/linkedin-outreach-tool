@@ -20,14 +20,14 @@
     return { ...(source ?? {}) };
   }
 
-  const todayStr = month.days.find(day => day.isToday)?.date ?? new Intl.DateTimeFormat('en-CA', {
+  const todayStr = untrack(() => month.days.find(day => day.isToday)?.date ?? new Intl.DateTimeFormat('en-CA', {
     timeZone: config.timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).format(new Date());
-  let localMonth = $state(month);
-  let weeksByKey = $state(normalizeWeeks(activityWeeks));
+  }).format(new Date()));
+  let localMonth = $state(untrack(() => month));
+  let weeksByKey = $state(untrack(() => normalizeWeeks(activityWeeks)));
   let range = $state({ start: todayStr, end: todayStr });
   let anchor = $state(todayStr);
   let loading = $state(false);

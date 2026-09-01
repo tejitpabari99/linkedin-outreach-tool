@@ -1,16 +1,17 @@
 <script>
+  import { untrack } from 'svelte';
   import { activityRange, buildActivityIndex } from '$lib/utils/activityTally.js';
   import { isAllowedUrl } from '$lib/utils/safeUrl.js';
   import { PRODUCT_TASK_IDS, taskVisual } from '$lib/utils/taskVisuals.js';
 
   let { range = null, weeksByKey = {}, config } = $props();
 
-  const today = new Intl.DateTimeFormat('en-CA', {
+  const today = untrack(() => new Intl.DateTimeFormat('en-CA', {
     timeZone: config.timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
-  }).format(new Date());
+  }).format(new Date()));
   const selectedRange = $derived(
     range?.start && range?.end ? range : { start: today, end: today }
   );

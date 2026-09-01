@@ -1,9 +1,10 @@
 <script>
   import { base } from '$app/paths';
+  import { untrack } from 'svelte';
   let { item, weekKey, onSaved } = $props();
-  let editing = $state(!item.link);
-  let url = $state(item.link?.url ?? '');
-  let label = $state(item.link?.label ?? '');
+  let editing = $state(untrack(() => !item.note && !item.link));
+  let url = $state(untrack(() => item.link?.url ?? ''));
+  let label = $state(untrack(() => item.link?.label ?? ''));
   let error = $state(null);
 
   function isSafeUrl(u) {
@@ -41,39 +42,29 @@
   }
 </script>
 
-{#if editing}
-  <div class="link-form">
-    <input class="link-url" type="text" bind:value={url} placeholder="https://…" />
-    <input class="link-label" type="text" bind:value={label} placeholder="Label" maxlength="80" />
-    <button class="link-save" onclick={save}>Save</button>
-    {#if item.link}<button class="link-cancel" onclick={() => editing = false}>Cancel</button>{/if}
-    {#if error}<p class="link-error">{error}</p>{/if}
+{#if item.note}
+  <div class="flex min-w-0 items-center">
+    {#if isSafeUrl(item.note)}
+      <a class="link link-hover max-w-full break-words text-sm text-primary" href={item.note} target="_blank" rel="noopener noreferrer">{item.note}</a>
+    {:else}
+      <span class="max-w-full whitespace-pre-wrap break-words text-sm text-base-content/75">{item.note}</span>
+    {/if}
+  </div>
+{:else if editing}
+  <div class="flex flex-wrap items-center gap-2">
+    <input class="input input-bordered min-h-10 min-w-0 flex-[2_1_13rem] bg-base-100 text-sm text-base-content focus:outline-primary max-[480px]:basis-full" type="text" bind:value={url} placeholder="https://…" />
+    <input class="input input-bordered min-h-10 min-w-0 flex-[1_1_7rem] bg-base-100 text-sm text-base-content focus:outline-primary max-[480px]:basis-full" type="text" bind:value={label} placeholder="Label" maxlength="80" />
+    <button class="btn btn-primary min-h-10" onclick={save}>Save</button>
+    {#if item.link}<button class="btn btn-ghost min-h-10" onclick={() => editing = false}>Cancel</button>{/if}
+    {#if error}<p class="basis-full text-xs text-error" role="alert">{error}</p>{/if}
   </div>
 {:else}
-  <div class="link-attached">
+  <div class="flex flex-wrap items-center gap-2">
     {#if item.link && isSafeUrl(item.link.url)}
-      <a class="link-pill" href={item.link.url} target="_blank" rel="noopener">{item.link.label}</a>
+      <a class="btn btn-ghost min-h-10 max-w-full normal-case" href={item.link.url} target="_blank" rel="noopener noreferrer">{item.link.label}</a>
     {:else}
-      <span class="link-pill">{item.link?.label ?? 'link'}</span>
+      <span class="inline-flex min-h-10 max-w-full items-center rounded-box border border-base-300 bg-base-200 px-3 text-sm text-base-content/60">{item.link?.label ?? 'link'}</span>
     {/if}
-    <button class="link-edit" onclick={() => editing = true} aria-label="Edit link">edit</button>
+    <button class="btn btn-ghost min-h-10" onclick={() => editing = true} aria-label="Edit link">edit</button>
   </div>
 {/if}
-
-<style>
-  .link-form { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-  .link-form input { min-height: 40px; padding: 0.35rem 0.55rem; border: 1px solid var(--input-border); border-radius: 7px; background: var(--input-bg); color: var(--fg); font: inherit; font-size: 0.78rem; }
-  .link-url { flex: 2 1 13rem; }
-  .link-label { flex: 1 1 7rem; }
-  .link-form input:focus { outline: none; border-color: var(--input-focus-border); }
-  .link-save, .link-cancel, .link-edit { min-height: 40px; padding: 0.35rem 0.7rem; border: 1px solid var(--chip-border); border-radius: 7px; background: var(--chip-bg); color: var(--fg-secondary); font: inherit; font-size: 0.76rem; cursor: pointer; }
-  .link-error { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 0.72rem; }
-  .link-attached { display: flex; align-items: center; gap: 0.4rem; }
-  .link-pill { min-width: 40px; min-height: 40px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; padding: 0.35rem 0.85rem; border-radius: 20px; background: var(--chip-bg); border: 1px solid var(--chip-border); color: var(--fg-secondary); text-decoration: none; white-space: nowrap; transition: border-color 0.15s, color 0.15s; }
-  .link-pill:hover { border-color: var(--chip-active-border); color: var(--fg); }
-
-  @media (max-width: 480px) {
-    .link-form { align-items: stretch; }
-    .link-url, .link-label { flex-basis: 100%; }
-  }
-</style>

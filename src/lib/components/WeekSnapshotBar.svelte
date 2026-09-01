@@ -1,8 +1,9 @@
 <script>
   import { base } from '$app/paths';
+  import { untrack } from 'svelte';
 
   let { task, weekKey, counts } = $props();
-  let count = $state(counts[task.id] ?? 0);
+  let count = $state(untrack(() => counts[task.id] ?? 0));
 
   $effect(() => {
     count = counts[task.id] ?? 0;
@@ -19,18 +20,9 @@
   }
 </script>
 
-<div class="snapshot-bar">
-  <span class="task-label">{task.label}</span>
-  <span class="count-label">{count} / {task.min}–{task.target}</span>
-  <button onclick={() => correct(-1)} disabled={count === 0} aria-label="Correct: -1">−</button>
-  <button onclick={() => correct(1)} aria-label="+1">+1</button>
+<div class="flex items-center gap-2 border-b border-base-300 py-2.5 last:border-b-0">
+  <span class="min-w-0 flex-1 text-sm text-base-content">{task.label}</span>
+  <span class="shrink-0 text-xs tabular-nums text-base-content/60">{count} / {task.min}–{task.target}</span>
+  <button class="btn btn-square btn-sm h-10 min-h-10 w-10 min-w-10" onclick={() => correct(-1)} disabled={count === 0} aria-label="Correct: -1">−</button>
+  <button class="btn btn-primary btn-sm h-10 min-h-10 min-w-10 px-2" onclick={() => correct(1)} aria-label="+1">+1</button>
 </div>
-
-<style>
-  .snapshot-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0; border-bottom: 1px solid var(--card-border); }
-  .task-label { flex: 1; color: var(--fg); font-size: 0.88rem; }
-  .count-label { color: var(--muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
-  button { min-width: 40px; min-height: 40px; border: 1px solid var(--chip-border); border-radius: 7px; background: var(--chip-bg); color: var(--fg); cursor: pointer; }
-  button:hover:not(:disabled) { border-color: var(--chip-active-border); background: var(--chip-active-bg); }
-  button:disabled { opacity: 0.3; cursor: not-allowed; }
-</style>
