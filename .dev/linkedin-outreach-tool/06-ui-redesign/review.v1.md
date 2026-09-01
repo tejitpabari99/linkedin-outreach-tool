@@ -84,3 +84,12 @@ click/shift-range across months + the read-only day/range tally; import refresh;
 - 2026-08-31 — 4-persona review (NEEDS_CHANGES), fix loop (M1–M3 + notes), Bug Hunter confirming re-review
   (found + fixed M-A weekKey lockstep). 483 tests green, build clean, SSR verified. Synthesized by the
   orchestrator. Awaiting human visual sign-off (Task 29) before merge.
+- 2026-09-01 — **Iteration 1** (owner feedback on the branch; PRD §10). Calmer **nord/dim** theme replacing
+  cupcake/synthwave + muted teal/indigo/gold gradient and calm task-symbol colors; larger/most-prominent
+  all-time totals and slightly larger this-week goals; calendar **Today** button; **`+` always counts on
+  click** (bare item POST, optional link popup gated by a new per-task **`showPopup`** config field; note
+  becomes optional/bare-item; Discard/Escape never undoes the +1); **`−`** opens the remove popup only when
+  removable manual items exist; lane editor exposes `showPopup`. Focused Bug Hunter re-review → 2 fixes
+  (note-Save now marks the week dirty so "What happened" refreshes; rapid `+` taps serialize into ≤50-item
+  batches so none are dropped and there's no same-week write race). **502 tests green**, build clean, SSR
+  verified (`dim` default, no neon). Still awaiting human visual sign-off before merge.
