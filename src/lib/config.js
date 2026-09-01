@@ -1,5 +1,8 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { isAllowedUrl } from './utils/safeUrl.js';
+
+export { isAllowedUrl };
 
 // PROJECT_ROOT must not be a path derived from import.meta.url: once this module is bundled
 // by adapter-node, its file lives under build/server/chunks/... rather than src/lib, so a
@@ -20,18 +23,6 @@ export class ConfigError extends Error {
 
 const ID_RE = /^[a-z][a-z0-9_]*$/;
 const REQUIRED_TOP_LEVEL_KEYS = ['version', 'name', 'timezone', 'lanes', 'tasks', 'metrics', 'links'];
-
-export function isAllowedUrl(u) {
-  if (typeof u !== 'string') return false;
-  if (u === '') return true;
-  if (/[\\]/.test(u)) return false;
-  try {
-    const protocol = new URL(u).protocol;
-    return protocol === 'http:' || protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
 
 export function validateConfig(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {

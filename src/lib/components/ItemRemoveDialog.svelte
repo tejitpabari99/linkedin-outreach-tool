@@ -5,7 +5,7 @@
 <script>
   import { base } from '$app/paths';
   import { onMount, tick } from 'svelte';
-  import { isAllowedUrl } from '$lib/config.js';
+  import { isAllowedUrl } from '$lib/utils/safeUrl.js';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
   import {
     focusFirstInPopup,
