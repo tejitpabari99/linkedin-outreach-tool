@@ -84,28 +84,28 @@
   }
 </script>
 
-<div class="diary-box">
+<div class="flex flex-col gap-2 text-base-content">
   {#if phase === 'idle' || phase === 'saving'}
     <textarea
-      class="diary-textarea"
+      class="textarea textarea-bordered min-h-24 w-full resize-y bg-base-100 text-sm text-base-content focus:outline-primary"
       bind:value={text}
       placeholder="What happened today?"
       rows="4"
       disabled={phase === 'saving'}
     ></textarea>
-    <div class="diary-controls">
-      <div class="date-control">
+    <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      <div class="flex flex-col">
         <input
-          class="date-input"
+          class="input input-bordered min-h-10 bg-base-100 text-sm text-base-content"
           type="date"
           bind:value={date}
           max={todayLocal()}
           disabled={phase === 'saving'}
         />
-        {#if targetWeekLabel}<p class="retro-label">{targetWeekLabel}</p>{/if}
+        {#if targetWeekLabel}<p class="mt-1 text-xs text-base-content/60">{targetWeekLabel}</p>{/if}
       </div>
-      <button class="save-btn" onclick={save} disabled={phase === 'saving' || !date || !text.trim()}>
-        {#if phase === 'saving'}<span class="spinner-sm"></span> Saving…{:else}Save{/if}
+      <button class="btn btn-primary min-h-10 sm:ml-auto" onclick={save} disabled={phase === 'saving' || !date || !text.trim()}>
+        {#if phase === 'saving'}<span class="loading loading-spinner loading-xs motion-reduce:animate-none"></span> Saving…{:else}Save{/if}
       </button>
     </div>
   {:else if phase === 'preview'}
@@ -116,28 +116,11 @@
       onReparse={reparse}
     />
   {:else if phase === 'failed'}
-    <div class="diary-failed">
-      <p class="failed-note">
+    <div class="rounded-box border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-base-content/70">
+      <p>
         Saved — couldn't read it automatically. The counters still work, or
-        <a class="retry-link" href="#retry" onclick={retry}>try again</a>.
+        <a class="link link-hover inline-flex min-h-10 items-center text-primary" href="#retry" onclick={retry}>try again</a>.
       </p>
     </div>
   {/if}
 </div>
-
-<style>
-  .diary-box { display: flex; flex-direction: column; gap: 0.6rem; }
-  .diary-textarea { width: 100%; box-sizing: border-box; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; color: var(--fg); font-size: 0.88rem; font-family: inherit; resize: vertical; outline: none; }
-  .diary-textarea:focus { border-color: var(--input-focus-border); }
-  .diary-controls { display: flex; gap: 0.6rem; align-items: center; }
-  .date-control { display: flex; flex-direction: column; }
-  .date-input { min-height: 40px; padding: 0.45rem 0.6rem; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 7px; color: var(--fg); font-size: 0.8rem; }
-  .retro-label { font-size: 0.76rem; color: var(--muted); margin: 0.2rem 0 0; }
-  .save-btn { min-width: 40px; min-height: 40px; padding: 0.5rem 1.1rem; background: var(--fg); color: var(--bg); border: none; border-radius: 7px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
-  .save-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .spinner-sm { display: inline-block; width: 11px; height: 11px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 0.3rem; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .diary-failed { font-size: 0.82rem; color: var(--muted); }
-  .retry-link { min-height: 40px; display: inline-flex; align-items: center; color: var(--fg-secondary); text-decoration: underline; cursor: pointer; }
-  @media (max-width: 640px) { .diary-controls { flex-direction: column; align-items: stretch; } }
-</style>

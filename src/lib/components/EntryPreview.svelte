@@ -73,8 +73,8 @@
   }
 </script>
 
-<div class="preview">
-  <p class="preview-summary">
+<div class="flex flex-col gap-2.5 rounded-box border border-base-300 bg-base-100 px-4 py-3 text-base-content">
+  <p class="text-sm tabular-nums text-base-content">
     {#each Object.entries(entry.proposed.counts) as [id, delta], i}
       {i > 0 ? ' · ' : ''}{countSummary(id, delta)}
     {/each}
@@ -83,23 +83,12 @@
     {/each}
   </p>
   {#if entry.ignored?.counts?.length || entry.ignored?.metrics?.length}
-    <p class="preview-ignored">
+    <p class="text-xs text-base-content/60">
       not used: {[...(entry.ignored?.counts ?? []), ...(entry.ignored?.metrics ?? [])].join(', ')}
     </p>
   {/if}
-  <div class="preview-actions">
-    <button class="btn-ghost" onclick={discard} disabled={busy}>Discard</button>
-    <button class="btn-primary" onclick={apply} disabled={busy}>Apply</button>
+  <div class="flex justify-end gap-2">
+    <button class="btn btn-ghost min-h-10" onclick={discard} disabled={busy}>Discard</button>
+    <button class="btn btn-primary min-h-10" onclick={apply} disabled={busy}>Apply</button>
   </div>
 </div>
-
-<style>
-  .preview { display: flex; flex-direction: column; gap: 0.65rem; padding: 0.85rem 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; }
-  .preview-summary { color: var(--fg); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
-  .preview-ignored { color: var(--muted); font-size: 0.76rem; }
-  .preview-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
-  .preview-actions button { min-width: 40px; min-height: 40px; padding: 0.45rem 0.9rem; border-radius: 7px; font: inherit; font-size: 0.82rem; cursor: pointer; }
-  .preview-actions button:disabled { opacity: 0.4; cursor: wait; }
-  .btn-ghost { background: var(--chip-bg); border: 1px solid var(--chip-border); color: var(--fg-secondary); }
-  .btn-primary { background: var(--fg); border: 1px solid var(--fg); color: var(--bg); font-weight: 600; }
-</style>
