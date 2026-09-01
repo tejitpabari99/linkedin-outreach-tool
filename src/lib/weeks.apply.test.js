@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   emptyWeek, bumpCount, setMetric, appendEntry, applyEntryToWeek,
   discardEntry, markEntryFailed, removeEntry, appendItem, attachItemLink,
-  WeekError, MAX_APPLY_DELTA
+  appendItems, removeItems, WeekError, MAX_APPLY_DELTA
 } from './weeks.js';
 
 const CONFIG = {
@@ -140,6 +140,115 @@ describe('appendItem / attachItemLink', () => {
     const { week, item } = appendItem(baseWeek(), { taskId: 'post', link: null });
     const updated = attachItemLink(week, item.id, { url: 'https://y', label: 'later link' });
     expect(updated.items.find(i => i.id === item.id).link.url).toBe('https://y');
+  });
+});
+
+describe('appendItems', () => {
+  it('appends distinct ordered trimmed rows, increments by N, and does not mutate input', () => {
+    const input = baseWeek();
+    input.counts.comments = 4;
+    input.metrics.followers = 1200;
+    input.entries.push({ id: 'entry-1', parseStatus: 'ok' });
+    const before = structuredClone(input);
+
+    const { week, items } = appendItems(input, {
+      taskId: 'comments',
+      notes: [' first note ', 'https://example.com/post', '\tthird note\n']
+    });
+
+    expect(items.map(item => item.note)).toEqual(['first note', 'https://example.com/post', 'third note']);
+    expect(new Set(items.map(item => item.id)).size).toBe(3);
+    expect(items.every(item => item.taskId === 'comments' && item.link === null)).toBe(true);
+    expect(items.every(item => !Number.isNaN(Date.parse(item.at)))).toBe(true);
+    expect(week.items).toEqual(items);
+    expect(week.counts.comments).toBe(7);
+    expect(week.metrics).toEqual(input.metrics);
+    expect(week.entries).toEqual(input.entries);
+    expect(input).toEqual(before);
+  });
+
+  it.each([
+    ['an empty batch', []],
+    ['more than 50 notes', Array.from({ length: 51 }, (_, index) => `note ${index}`)],
+    ['a blank note', ['valid', '   ']],
+    ['a non-string note', ['valid', 42]],
+    ['a note over 4000 characters', ['valid', 'x'.repeat(4001)]]
+  ])('rejects %s without a partial result or input mutation', (_label, notes) => {
+    const input = baseWeek();
+    const before = structuredClone(input);
+    expect(() => appendItems(input, { taskId: 'comments', notes })).toThrow(WeekError);
+    expect(input).toEqual(before);
+  });
+});
+
+describe('removeItems', () => {
+  function itemizedWeek({ count = 3 } = {}) {
+    const week = baseWeek();
+    week.counts.comments = count;
+    week.metrics.followers = 99;
+    week.entries.push({ id: 'entry-1', parseStatus: 'ok' });
+    week.items.push(
+      { id: 'comment-1', taskId: 'comments', at: '2026-09-01T01:00:00.000Z', note: 'one', link: null },
+      { id: 'comment-2', taskId: 'comments', at: '2026-09-01T02:00:00.000Z', note: 'two', link: null },
+      { id: 'post-1', taskId: 'post', at: '2026-09-01T03:00:00.000Z', note: 'post', link: null }
+    );
+    return week;
+  }
+
+  it.each([
+    ['an empty id list', []],
+    ['duplicate ids', ['comment-1', 'comment-1']],
+    ['a missing id', ['missing-id']],
+    ['a cross-task id', ['post-1']]
+  ])('rejects %s without mutating input', (_label, itemIds) => {
+    const input = itemizedWeek();
+    const before = structuredClone(input);
+    expect(() => removeItems(input, { taskId: 'comments', itemIds })).toThrow(WeekError);
+    expect(input).toEqual(before);
+  });
+
+  it('rejects a stale id from an already-removed row without mutating the newer week', () => {
+    const original = itemizedWeek();
+    const { week: newer } = removeItems(original, { taskId: 'comments', itemIds: ['comment-1'] });
+    const before = structuredClone(newer);
+    expect(() => removeItems(newer, { taskId: 'comments', itemIds: ['comment-1'] })).toThrow(WeekError);
+    expect(newer).toEqual(before);
+  });
+
+  it('rejects when count is less than the selected item count instead of clamping', () => {
+    const input = itemizedWeek({ count: 1 });
+    const before = structuredClone(input);
+    expect(() => removeItems(input, {
+      taskId: 'comments', itemIds: ['comment-1', 'comment-2']
+    })).toThrow(WeekError);
+    expect(input).toEqual(before);
+  });
+
+  it('removes exact rows while preserving an unitemized residual and unrelated fields', () => {
+    const input = itemizedWeek({ count: 7 });
+    const before = structuredClone(input);
+
+    const { week, removedIds } = removeItems(input, {
+      taskId: 'comments', itemIds: ['comment-2', 'comment-1']
+    });
+
+    expect(removedIds).toEqual(['comment-2', 'comment-1']);
+    expect(week.counts.comments).toBe(5);
+    expect(week.items).toEqual([before.items[2]]);
+    expect(week.counts.post).toBe(before.counts.post);
+    expect(week.metrics).toEqual(before.metrics);
+    expect(week.entries).toEqual(before.entries);
+    expect({ ...week, counts: undefined, items: undefined }).toEqual({ ...before, counts: undefined, items: undefined });
+    expect(input).toEqual(before);
+  });
+
+  it('allows count equal to selected item count and reaches zero', () => {
+    const input = itemizedWeek({ count: 2 });
+    const { week } = removeItems(input, {
+      taskId: 'comments', itemIds: ['comment-1', 'comment-2']
+    });
+    expect(week.counts.comments).toBe(0);
+    expect(week.items.map(item => item.id)).toEqual(['post-1']);
   });
 });
 

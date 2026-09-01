@@ -322,6 +322,83 @@ export function appendItem(week, { taskId, link = null }) {
   return { week: next, item };
 }
 
+function assertTaskId(taskId, weekKey) {
+  if (typeof taskId !== 'string' || taskId.length === 0) {
+    throw new WeekError('taskId must be a non-empty string', weekKey);
+  }
+}
+
+function currentCount(week, taskId) {
+  const count = week.counts[taskId] ?? 0;
+  if (!Number.isInteger(count) || count < 0) {
+    throw new WeekError(`Count for "${taskId}" must be a non-negative integer`, week.week);
+  }
+  return count;
+}
+
+export function appendItems(week, { taskId, notes }) {
+  assertTaskId(taskId, week.week);
+  if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
+    throw new WeekError('notes must be an array containing 1 to 50 strings', week.week);
+  }
+
+  const normalizedNotes = notes.map((note, index) => {
+    if (typeof note !== 'string') {
+      throw new WeekError(`notes[${index}] must be a string`, week.week);
+    }
+    const trimmed = note.trim();
+    if (trimmed.length === 0 || trimmed.length > 4000) {
+      throw new WeekError(`notes[${index}] must contain 1 to 4000 characters after trimming`, week.week);
+    }
+    return trimmed;
+  });
+  const count = currentCount(week, taskId);
+  const items = normalizedNotes.map(note => ({
+    id: randomUUID(),
+    taskId,
+    at: new Date().toISOString(),
+    note,
+    link: null
+  }));
+  const next = structuredClone(week);
+  next.items.push(...items);
+  next.counts[taskId] = count + items.length;
+  return { week: next, items };
+}
+
+export function removeItems(week, { taskId, itemIds }) {
+  assertTaskId(taskId, week.week);
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    throw new WeekError('itemIds must be a non-empty array', week.week);
+  }
+  if (itemIds.some(id => typeof id !== 'string' || id.length === 0)) {
+    throw new WeekError('itemIds must contain only non-empty strings', week.week);
+  }
+  const selectedIds = new Set(itemIds);
+  if (selectedIds.size !== itemIds.length) {
+    throw new WeekError('itemIds must be unique', week.week);
+  }
+
+  for (const id of itemIds) {
+    const matches = week.items.filter(item => item.id === id);
+    if (matches.length !== 1) {
+      throw new WeekError(`Item "${id}" not found in week ${week.week}`, week.week);
+    }
+    if (matches[0].taskId !== taskId) {
+      throw new WeekError(`Item "${id}" does not belong to task "${taskId}"`, week.week);
+    }
+  }
+  const count = currentCount(week, taskId);
+  if (count < itemIds.length) {
+    throw new WeekError(`Count for "${taskId}" is less than the number of selected items`, week.week);
+  }
+
+  const next = structuredClone(week);
+  next.items = next.items.filter(item => !selectedIds.has(item.id));
+  next.counts[taskId] = count - itemIds.length;
+  return { week: next, removedIds: [...itemIds] };
+}
+
 export function attachItemLink(week, itemId, link) {
   assertValidLink(link, week.week);
   const next = structuredClone(week);

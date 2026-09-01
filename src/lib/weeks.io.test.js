@@ -51,6 +51,26 @@ describe('writeWeek + readWeek round-trip', () => {
     expect(reread).toEqual(week);
   });
 
+  it('reads and round-trips legacy safe/null-link rows without notes or a version bump', () => {
+    const legacyWeek = emptyWeek('2026-W35', CONFIG);
+    legacyWeek.items = [
+      {
+        id: 'legacy-link', taskId: 'post', at: '2026-09-01T10:00:00.000Z',
+        link: { url: 'https://example.com/post', label: 'Legacy post' }
+      },
+      { id: 'legacy-null', taskId: 'orphan_task', at: '2026-09-02T10:00:00.000Z', link: null }
+    ];
+    writeFileSync(join(dir, '2026-W35.json'), JSON.stringify(legacyWeek), 'utf8');
+
+    const read = readWeek('2026-W35', CONFIG, dir);
+    expect(read.version).toBe(1);
+    expect(read.items).toEqual(legacyWeek.items);
+    expect(read.items.every(item => !('note' in item))).toBe(true);
+
+    writeWeek('2026-W35', read, dir);
+    expect(readWeek('2026-W35', CONFIG, dir).items).toEqual(legacyWeek.items);
+  });
+
   it('leaves no .tmp-* file behind on success', () => {
     const week = emptyWeek('2026-W35', CONFIG);
     writeWeek('2026-W35', week, dir);
