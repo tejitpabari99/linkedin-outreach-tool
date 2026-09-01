@@ -10,6 +10,7 @@
     month,
     config,
     activityWeeks = {},
+    selectedRange = null,
     onRangeChange = () => {},
     onWeeksChange = () => {},
     onActiveDateChange = () => {}
@@ -112,6 +113,39 @@
     }
   }
 
+  async function showRange(selection) {
+    const start = selection.start <= selection.end ? selection.start : selection.end;
+    const end = selection.start <= selection.end ? selection.end : selection.start;
+    const visibleDates = new Set(localMonth.days.map(day => day.date));
+    const displayDate = visibleDates.has(start) && visibleDates.has(end) ? null : start;
+    const [year, monthNumber] = displayDate
+      ? displayDate.split('-').map(Number)
+      : [localMonth.year, localMonth.month];
+    const version = ++navigationVersion;
+
+    anchor = start;
+    range = { start, end };
+    if (displayDate) {
+      localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
+    }
+    loading = true;
+
+    try {
+      await fetchWeeks([
+        ...new Set([
+          ...weekKeysForRange(start, end),
+          ...weekKeysForMonth(year, monthNumber)
+        ])
+      ]);
+      if (version !== navigationVersion) return;
+      localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
+    } catch {
+      // Keep the requested range visible with any activity already cached.
+    } finally {
+      if (version === navigationVersion) loading = false;
+    }
+  }
+
   function selectDay(event, date) {
     if (event.shiftKey && anchor) {
       range = date < anchor
@@ -198,6 +232,15 @@
       // Existing cached activity remains visible until a later successful refresh.
     }
   }
+
+  $effect(() => {
+    const selection = selectedRange;
+    if (!selection?.start || !selection?.end) return;
+    const start = selection.start <= selection.end ? selection.start : selection.end;
+    const end = selection.start <= selection.end ? selection.end : selection.start;
+    if (start === range.start && end === range.end) return;
+    void showRange({ start, end });
+  });
 
   $effect(() => {
     onRangeChange({ start: range.start, end: range.end });

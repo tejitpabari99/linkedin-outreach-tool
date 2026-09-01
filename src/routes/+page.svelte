@@ -11,7 +11,7 @@
   import WhatHappened from '$lib/components/WhatHappened.svelte';
   import { createWeekStore, provideWeekStore } from '$lib/stores/weekStore.svelte.js';
   import { buildCalendarMonth } from '$lib/utils/calendarMonth.js';
-  import { dateToWeekKey } from '$lib/utils/isoWeek.js';
+  import { dateToWeekKey, weekKeyToRange } from '$lib/utils/isoWeek.js';
   import { createPopupStore, providePopupStore } from '$lib/utils/popupStore.svelte.js';
 
   let { data } = $props();
@@ -23,6 +23,37 @@
       month: '2-digit',
       day: '2-digit'
     }).format(new Date());
+  }
+
+  function shiftDate(date, days) {
+    const shifted = new Date(`${date}T00:00:00Z`);
+    shifted.setUTCDate(shifted.getUTCDate() + days);
+    return shifted.toISOString().slice(0, 10);
+  }
+
+  function monthRange(year, month) {
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
+    return {
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10)
+    };
+  }
+
+  function quickRange(period) {
+    const today = todayInTimezone(store.config.timezone);
+    const [year, month] = today.split('-').map(Number);
+    if (period === 'this-month') return monthRange(year, month);
+    if (period === 'last-month') {
+      const previous = new Date(Date.UTC(year, month - 2, 1));
+      return monthRange(previous.getUTCFullYear(), previous.getUTCMonth() + 1);
+    }
+
+    const thisWeek = weekKeyToRange(dateToWeekKey(`${today}T12:00:00`, store.config.timezone));
+    if (period === 'last-week') {
+      return { start: shiftDate(thisWeek.start, -7), end: shiftDate(thisWeek.end, -7) };
+    }
+    return thisWeek;
   }
 
   const initialActiveDate = untrack(() => data.configError ? '' : todayInTimezone(data.config.timezone));
@@ -162,11 +193,18 @@
           month={calendarMonth}
           config={store.config}
           activityWeeks={data.activityWeeks}
+          {selectedRange}
           onRangeChange={(range) => selectedRange = range}
           onWeeksChange={(weeks) => activityWeeks = weeks}
           onActiveDateChange={(date) => activeDate = date}
         />
       {/key}
+      <div class="mt-2 flex flex-wrap gap-1.5" aria-label="Quick activity ranges">
+        <button class="btn btn-ghost btn-xs" type="button" onclick={() => selectedRange = quickRange('last-month')}>Last month</button>
+        <button class="btn btn-ghost btn-xs" type="button" onclick={() => selectedRange = quickRange('this-month')}>This month</button>
+        <button class="btn btn-ghost btn-xs" type="button" onclick={() => selectedRange = quickRange('last-week')}>Last week</button>
+        <button class="btn btn-ghost btn-xs" type="button" onclick={() => selectedRange = quickRange('this-week')}>This week</button>
+      </div>
     </section>
 
     <section data-slot="what-happened">
