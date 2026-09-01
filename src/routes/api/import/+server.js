@@ -26,13 +26,22 @@ function structuralCheckWeek(w) {
     problems.push('"items" must be an array');
   } else {
     for (const [index, item] of w.items.entries()) {
+      if (typeof item?.id !== 'string') problems.push(`"items[${index}].id" must be a string`);
+      if (typeof item?.taskId !== 'string') problems.push(`"items[${index}].taskId" must be a string`);
+      if (typeof item?.at !== 'string') problems.push(`"items[${index}].at" must be a string`);
+      if (item !== null && typeof item === 'object' && Object.hasOwn(item, 'note')) {
+        if (typeof item.note !== 'string') {
+          problems.push(`"items[${index}].note" must be a string`);
+        } else if (item.note.trim().length === 0 || item.note.length > 4000) {
+          problems.push(`"items[${index}].note" must be non-empty after trimming and at most 4000 characters`);
+        }
+      }
       const link = item?.link;
-      if (link === null || link === undefined) continue;
-      if (
+      if (link !== null && link !== undefined && (
         typeof link !== 'object' || Array.isArray(link) ||
         typeof link.url !== 'string' || typeof link.label !== 'string' ||
         link.url === '' || !isAllowedUrl(link.url)
-      ) {
+      )) {
         problems.push(`"items[${index}].link" must be null or { url: http/https URL, label: string }`);
       }
     }
@@ -49,11 +58,12 @@ export async function POST({ request }) {
 
   const problems = [];
   const isBundle = 'weeks' in body;
+  let normalizedConfig;
 
   if (isBundle) {
     if (body.config !== undefined) {
       try {
-        config.validateConfig(body.config);
+        normalizedConfig = config.validateConfig(body.config);
       } catch (e) {
         problems.push(`config: ${e.message}`);
       }
@@ -93,7 +103,7 @@ export async function POST({ request }) {
   const imported = { config: false, weeks: [] };
   if (isBundle) {
     if (body.config !== undefined) {
-      config.writeConfig(config.validateConfig(body.config));
+      config.writeConfig(normalizedConfig);
       imported.config = true;
     }
     for (const [weekKey, w] of Object.entries(body.weeks ?? {})) {

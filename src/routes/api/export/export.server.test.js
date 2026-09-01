@@ -8,19 +8,40 @@ const mocks = vi.hoisted(() => {
     readWeek: vi.fn(),
     listWeekKeys: vi.fn(),
     isValidWeekKey: vi.fn(),
-    emptyWeek: vi.fn()
+    emptyWeek: vi.fn(),
+    validateConfig: vi.fn(),
+    writeConfig: vi.fn(),
+    isAllowedUrl: vi.fn(),
+    writeWeek: vi.fn(),
+    existsSync: vi.fn(),
+    copyFileSync: vi.fn(),
+    mkdirSync: vi.fn()
   };
 });
 
-vi.mock('$lib/config.js', () => ({ loadConfig: mocks.loadConfig }));
+vi.mock('node:fs', () => ({
+  existsSync: mocks.existsSync,
+  copyFileSync: mocks.copyFileSync,
+  mkdirSync: mocks.mkdirSync
+}));
+vi.mock('$lib/config.js', () => ({
+  CONFIG_PATH: 'Q:\\scratch\\config\\config.json',
+  loadConfig: mocks.loadConfig,
+  validateConfig: mocks.validateConfig,
+  writeConfig: mocks.writeConfig,
+  isAllowedUrl: mocks.isAllowedUrl
+}));
 vi.mock('$lib/weeks.js', () => ({
+  DATA_DIR: 'Q:\\scratch\\data',
   WeekError: mocks.WeekError,
   readWeek: mocks.readWeek,
+  writeWeek: mocks.writeWeek,
   listWeekKeys: mocks.listWeekKeys,
   isValidWeekKey: mocks.isValidWeekKey,
   emptyWeek: mocks.emptyWeek
 }));
 
+import { POST as importData } from '../import/+server.js';
 import { GET as exportWeek } from './+server.js';
 import { GET as exportAll } from './all/+server.js';
 
@@ -41,6 +62,10 @@ function urlWith(query = '') {
   return new URL(`http://localhost/api/export${query}`);
 }
 
+function requestWith(body) {
+  return { json: vi.fn().mockResolvedValue(body) };
+}
+
 describe('export routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,6 +73,15 @@ describe('export routes', () => {
     mocks.readWeek.mockImplementation(key => key === '2026-W34' ? week34 : week35);
     mocks.listWeekKeys.mockReturnValue(['2026-W34', '2026-W35']);
     mocks.isValidWeekKey.mockReturnValue(true);
+    mocks.validateConfig.mockImplementation(value => value);
+    mocks.existsSync.mockReturnValue(false);
+    mocks.isAllowedUrl.mockImplementation(url => {
+      try {
+        return ['http:', 'https:'].includes(new URL(url).protocol);
+      } catch {
+        return false;
+      }
+    });
   });
 
   it('exports an empty template for a never-logged week with an attachment filename', async () => {
@@ -85,6 +119,49 @@ describe('export routes', () => {
       unreadableWeeks: ['2026-W35']
     });
     expect(mocks.emptyWeek).not.toHaveBeenCalled();
+  });
+
+  it('preserves safe, unsafe-like, plain notes and legacy links across export-import-export', async () => {
+    const richWeek = {
+      ...week35,
+      items: [
+        {
+          id: 'safe-note', taskId: 'post', at: '2026-08-29T20:00:00.000Z',
+          note: 'https://www.linkedin.com/posts/example', link: null
+        },
+        {
+          id: 'unsafe-note', taskId: 'post', at: '2026-08-29T20:01:00.000Z',
+          note: 'javascript:alert(1)', link: null
+        },
+        {
+          id: 'plain-note', taskId: 'post', at: '2026-08-29T20:02:00.000Z',
+          note: '  comment on Priya’s post  ', link: null
+        },
+        {
+          id: 'legacy-link', taskId: 'post', at: '2026-08-29T20:03:00.000Z',
+          link: { url: 'https://example.test/legacy', label: 'Legacy post' }
+        }
+      ]
+    };
+    mocks.listWeekKeys.mockReturnValue(['2026-W35']);
+    mocks.readWeek.mockReturnValue(richWeek);
+
+    const firstBundle = await exportAll().json();
+    const importResponse = await importData({ request: requestWith(firstBundle) });
+
+    expect(importResponse.status).toBe(200);
+    expect(mocks.writeWeek).toHaveBeenCalledWith('2026-W35', richWeek);
+    const importedWeek = structuredClone(mocks.writeWeek.mock.calls[0][1]);
+    mocks.readWeek.mockReturnValue(importedWeek);
+    const secondBundle = await exportAll().json();
+
+    expect(secondBundle.weeks['2026-W35'].items).toEqual(firstBundle.weeks['2026-W35'].items);
+    expect(secondBundle.weeks['2026-W35'].items.map(item => item.note)).toEqual([
+      'https://www.linkedin.com/posts/example',
+      'javascript:alert(1)',
+      '  comment on Priya’s post  ',
+      undefined
+    ]);
   });
 
   it('exports live config and every existing week in a dated attachment', async () => {

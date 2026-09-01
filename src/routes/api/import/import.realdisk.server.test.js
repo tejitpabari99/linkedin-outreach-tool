@@ -24,17 +24,18 @@ function requestWith(body) {
 describe.sequential('POST /api/import real-disk safety', () => {
   let actualFs;
   let dataDir;
+  let configPath;
   let diskPost;
   let diskWeeks;
 
   beforeEach(async () => {
     actualFs = await vi.importActual('node:fs');
     dataDir = await mkdtemp(join(tmpdir(), 'lot-task14-import-'));
+    configPath = join(dataDir, 'config.json');
     vi.resetModules();
     vi.doMock('node:fs', () => actualFs);
     vi.doMock('$lib/config.js', async (importOriginal) => {
       const actual = await importOriginal();
-      const configPath = join(dataDir, 'config.json');
       return {
         ...actual,
         CONFIG_PATH: configPath,
@@ -82,6 +83,24 @@ describe.sequential('POST /api/import real-disk safety', () => {
     expect(JSON.parse(actualFs.readFileSync(livePath, 'utf8'))).toEqual(imported);
   });
 
+  it('persists the linePct default when importing an old bundle config', async () => {
+    const oldConfig = {
+      version: 1,
+      name: 'Outreach',
+      timezone: 'America/Los_Angeles',
+      lanes: [{ id: 'presence', label: 'Presence' }],
+      tasks: [{ id: 'post', lane: 'presence', label: 'Posts', min: 1, target: 2, link: 'required' }],
+      metrics: [{ id: 'followers', label: 'Followers', headline: true }],
+      links: []
+    };
+
+    const response = await diskPost({ request: requestWith({ config: oldConfig, weeks: {} }) });
+
+    expect(response.status).toBe(200);
+    const persisted = JSON.parse(actualFs.readFileSync(configPath, 'utf8'));
+    expect(persisted.tasks[0]).toEqual({ ...oldConfig.tasks[0], linePct: 75 });
+  });
+
   it('validates before backup or write, leaving the original untouched', async () => {
     const original = week('2026-W35', 2);
     diskWeeks.writeWeek('2026-W35', original);
@@ -89,6 +108,23 @@ describe.sequential('POST /api/import real-disk safety', () => {
     const before = actualFs.readFileSync(livePath);
     const invalid = week('2026-W35', 99);
     delete invalid.entries;
+
+    const response = await diskPost({ request: requestWith(invalid) });
+
+    expect(response.status).toBe(400);
+    expect(actualFs.existsSync(join(dataDir, '.backups'))).toBe(false);
+    expect(actualFs.readFileSync(livePath)).toEqual(before);
+  });
+
+  it('rejects an invalid note before creating a backup or changing original bytes', async () => {
+    const original = week('2026-W35', 2);
+    diskWeeks.writeWeek('2026-W35', original);
+    const livePath = join(dataDir, '2026-W35.json');
+    const before = actualFs.readFileSync(livePath);
+    const invalid = week('2026-W35', 99);
+    invalid.items.push({
+      id: 'item-1', taskId: 'post', at: '2026-08-29T20:00:00.000Z', note: '   ', link: null
+    });
 
     const response = await diskPost({ request: requestWith(invalid) });
 

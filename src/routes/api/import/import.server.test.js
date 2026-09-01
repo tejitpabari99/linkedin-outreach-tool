@@ -54,6 +54,17 @@ function week(key, count = 0) {
   };
 }
 
+function item(overrides = {}) {
+  return {
+    id: 'item-1',
+    taskId: 'post',
+    at: '2026-08-29T20:00:00.000Z',
+    note: 'A plain note',
+    link: null,
+    ...overrides
+  };
+}
+
 function requestWith(body) {
   return { json: vi.fn().mockResolvedValue(body) };
 }
@@ -149,13 +160,72 @@ describe('POST /api/import', () => {
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['non-string note', { note: 42 }, '"items[0].note" must be a string'],
+    ['blank note', { note: '   ' }, '"items[0].note" must be non-empty after trimming and at most 4000 characters'],
+    ['oversized note', { note: 'x'.repeat(4001) }, '"items[0].note" must be non-empty after trimming and at most 4000 characters'],
+    ['non-string id', { id: 1 }, '"items[0].id" must be a string'],
+    ['non-string taskId', { taskId: null }, '"items[0].taskId" must be a string'],
+    ['non-string at', { at: 123 }, '"items[0].at" must be a string']
+  ])('rejects %s before checking targets, backups, or writes', async (_case, overrides, detail) => {
+    const invalid = week('2026-W35');
+    invalid.items.push(item(overrides));
+    mocks.existsSync.mockReturnValue(true);
+
+    const result = await responseBody(await POST({ request: requestWith(invalid) }));
+
+    expect(result.status).toBe(400);
+    expect(result.body.details).toContain(detail);
+    expect(mocks.existsSync).not.toHaveBeenCalled();
+    expect(mocks.mkdirSync).not.toHaveBeenCalled();
+    expect(mocks.copyFileSync).not.toHaveBeenCalled();
+    expect(mocks.writeConfig).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).not.toHaveBeenCalled();
+  });
+
+  it('imports legacy no-note items and historical orphan task ids unchanged', async () => {
+    const imported = week('2026-W35');
+    const legacy = item({ taskId: 'removed_task', link: { url: 'https://example.test/legacy', label: 'Legacy' } });
+    delete legacy.note;
+    imported.items.push(legacy);
+
+    const result = await responseBody(await POST({ request: requestWith(imported) }));
+
+    expect(result.status).toBe(200);
+    expect(mocks.writeWeek).toHaveBeenCalledWith('2026-W35', imported);
+  });
+
+  it('normalizes old bundle config before backup and persists explicit linePct defaults', async () => {
+    const oldConfig = {
+      ...cfg,
+      lanes: [{ id: 'presence', label: 'Presence' }],
+      tasks: [{ id: 'post', lane: 'presence', label: 'Posts', min: 1, target: 2, link: 'required' }],
+      metrics: [{ id: 'followers', label: 'Followers', headline: true }]
+    };
+    const normalizedConfig = {
+      ...oldConfig,
+      tasks: [{ ...oldConfig.tasks[0], linePct: 75 }]
+    };
+    mocks.validateConfig.mockReturnValue(normalizedConfig);
+    mocks.existsSync.mockReturnValue(true);
+
+    const result = await responseBody(await POST({
+      request: requestWith({ config: oldConfig, weeks: { '2026-W35': week('2026-W35') } })
+    }));
+
+    expect(result.status).toBe(200);
+    expect(mocks.validateConfig).toHaveBeenCalledTimes(1);
+    expect(mocks.validateConfig).toHaveBeenCalledWith(oldConfig);
+    expect(mocks.writeConfig).toHaveBeenCalledWith(normalizedConfig);
+    expect(mocks.validateConfig.mock.invocationCallOrder[0]).toBeLessThan(mocks.existsSync.mock.invocationCallOrder[0]);
+    expect(mocks.validateConfig.mock.invocationCallOrder[0]).toBeLessThan(mocks.writeConfig.mock.invocationCallOrder[0]);
+  });
+
   it('rejects an unsafe item link across the entire bundle before backup or write', async () => {
     const unsafe = week('2026-W35');
-    unsafe.items.push({
-      id: 'item-1',
-      taskId: 'post',
+    unsafe.items.push(item({
       link: { url: 'javascript:alert(1)', label: 'Unsafe' }
-    });
+    }));
     mocks.existsSync.mockReturnValue(true);
 
     const result = await responseBody(await POST({
