@@ -3,7 +3,8 @@
   import { untrack } from 'svelte';
   import AppHeader from '$lib/components/AppHeader.svelte';
   import Confetti from '$lib/components/Confetti.svelte';
-  import DiaryBox from '$lib/components/DiaryBox.svelte';
+  // Diary writeup temporarily hidden from the UI (kept for later use). See mount below.
+  // import DiaryBox from '$lib/components/DiaryBox.svelte';
   import MonthCalendar from '$lib/components/MonthCalendar.svelte';
   import TotalsRow from '$lib/components/TotalsRow.svelte';
   import WeekGoals from '$lib/components/WeekGoals.svelte';
@@ -209,7 +210,11 @@
       {/if}
     </div>
     <WeekLanes />
+    <!-- Diary writeup temporarily hidden from the UI (kept for later use). To restore: uncomment the
+         import above and this mount. The component (DiaryBox.svelte / EntryPreview.svelte) is retained.
     <DiaryBox weekKey={store.weekKey} initialEntries={store.week.entries} />
+    -->
+
 
     <section data-slot="activity-calendar">
       {#key data}
