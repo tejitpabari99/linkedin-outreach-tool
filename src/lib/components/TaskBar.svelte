@@ -1,4 +1,5 @@
 <script>
+  import { base } from '$app/paths';
   import ItemAddDialog from './ItemAddDialog.svelte';
   import ItemRemoveDialog from './ItemRemoveDialog.svelte';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
@@ -25,11 +26,44 @@
   let removeOpen = $state(false);
   let addVersion = $state(0);
   let removeVersion = $state(0);
+  let addItemId = $state(null);
+  let addWeekKey = $state('');
+  let adding = $state(false);
 
-  function openAdd() {
-    removeOpen = false;
-    addVersion += 1;
-    addOpen = true;
+  async function tapAdd() {
+    if (adding) return;
+
+    const weekKey = store.weekKey;
+    adding = true;
+    store.bumpLocalCount(task.id, 1);
+
+    try {
+      const response = await fetch(`${base}/api/week/${weekKey}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, notes: [null] })
+      });
+      if (!response.ok) throw new Error('Item add failed');
+
+      const result = await response.json();
+      store.replaceWeek(result.week);
+      store.adjustAllTimeTotal(task.id, 1);
+      store.markWeekDirty(weekKey);
+
+      const createdItemId = result.items?.[0]?.id;
+      const configTask = store.config.tasks.find((candidate) => candidate.id === task.id);
+      if (configTask?.showPopup === true && typeof createdItemId === 'string') {
+        removeOpen = false;
+        addItemId = createdItemId;
+        addWeekKey = weekKey;
+        addVersion += 1;
+        addOpen = true;
+      }
+    } catch {
+      store.bumpLocalCount(task.id, -1);
+    } finally {
+      adding = false;
+    }
   }
 
   function openRemove() {
@@ -81,15 +115,17 @@
     <button
       class="btn btn-square btn-primary btn-sm h-10 min-h-10 w-10 min-w-10 shrink-0 text-lg"
       type="button"
-      onclick={openAdd}
+      onclick={tapAdd}
+      disabled={adding}
+      aria-busy={adding}
       aria-label={`Add logged ${visual.short}`}
     >+</button>
   </div>
 </article>
 
-{#if addOpen}
+{#if addOpen && addItemId}
   {#key addVersion}
-    <ItemAddDialog taskId={task.id} weekKey={store.weekKey} />
+    <ItemAddDialog weekKey={addWeekKey} itemId={addItemId} />
   {/key}
 {/if}
 

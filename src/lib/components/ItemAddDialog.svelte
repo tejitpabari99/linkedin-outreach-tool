@@ -13,53 +13,43 @@
     usePopupEscapeHandler
   } from '$lib/utils/popupStore.svelte.js';
 
-  let { taskId, weekKey } = $props();
+  let { weekKey, itemId } = $props();
 
   const store = getWeekStore();
   const popupStore = getPopupStore();
   const popupId = `item-add-dialog-${++dialogSequence}`;
 
   let dialog = $state();
-  let values = $state(['']);
+  let value = $state('');
   let saving = $state(false);
   let error = $state('');
   let visible = $state(true);
 
-  const notes = $derived(values.map((value) => value.trim()).filter(Boolean));
+  const note = $derived(value.trim());
 
   usePopupEscapeHandler(popupStore);
-
-  function updateValue(index, value) {
-    values[index] = value;
-    if (index === values.length - 1 && value.trim() && values.length < 50) {
-      values.push('');
-    }
-  }
 
   function discard() {
     if (!saving) popupStore.discardCurrent();
   }
 
   async function save() {
-    if (saving || notes.length === 0) return;
+    if (saving || note.length === 0) return;
 
     saving = true;
     error = '';
-    const submittedNotes = [...notes];
 
     try {
-      const response = await fetch(`${base}/api/week/${weekKey}/items`, {
-        method: 'POST',
+      const response = await fetch(`${base}/api/week/${weekKey}/items/${itemId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId, notes: submittedNotes })
+        body: JSON.stringify({ note })
       });
-      if (!response.ok) throw new Error('Item add failed');
+      if (!response.ok) throw new Error('Item note update failed');
 
       const result = await response.json();
       store.replaceWeek(result.week);
-      store.adjustAllTimeTotal(taskId, submittedNotes.length);
-      store.markWeekDirty(weekKey);
-      values = [''];
+      value = '';
       visible = false;
       popupStore.close(popupId);
     } catch {
@@ -76,7 +66,7 @@
   onMount(() => {
     const trigger = document.activeElement;
     popupStore.open(popupId, () => {
-      values = [''];
+      value = '';
       error = '';
       visible = false;
     }, trigger);
@@ -103,17 +93,14 @@
       <h2 id={`${popupId}-title`} class="text-lg font-semibold">Add activity</h2>
 
       <div class="flex flex-1 flex-col gap-3 overflow-y-auto py-1">
-        {#each values as value, index (index)}
-          <input
-            class="input input-bordered w-full"
-            type="text"
-            value={value}
-            maxlength="4000"
-            placeholder={index === 0 ? 'URL or note' : 'Another URL or note'}
-            aria-label={`Activity note ${index + 1}`}
-            oninput={(event) => updateValue(index, event.currentTarget.value)}
-          />
-        {/each}
+        <input
+          class="input input-bordered w-full"
+          type="text"
+          bind:value
+          maxlength="4000"
+          placeholder="URL or note (optional)"
+          aria-label="Activity note"
+        />
       </div>
 
       {#if error}
@@ -122,7 +109,7 @@
 
       <div class="modal-action mt-0">
         <button class="btn btn-ghost" type="button" onclick={discard} disabled={saving}>Discard</button>
-        <button class="btn btn-primary" type="button" onclick={save} disabled={saving || notes.length === 0}>
+        <button class="btn btn-primary" type="button" onclick={save} disabled={saving || note.length === 0}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
