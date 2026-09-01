@@ -66,7 +66,7 @@ export async function POST({ params, request }) {
     throw error;
   }
   weeks.writeWeek(params.week, result.week);
-  return json({ items: result.items, week: result.week });
+  return json({ items: result.items, week: weeks.projectWeekForConfig(result.week, cfg) });
 }
 
 export async function DELETE({ params, request }) {
@@ -96,5 +96,8 @@ export async function DELETE({ params, request }) {
     throw error;
   }
   weeks.writeWeek(params.week, result.week);
-  return json({ removedIds: result.removedIds, week: result.week });
+  return json({
+    removedIds: result.removedIds,
+    week: weeks.projectWeekForConfig(result.week, cfg)
+  });
 }

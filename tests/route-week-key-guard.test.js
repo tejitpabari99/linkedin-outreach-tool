@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     removeEntry: vi.fn(),
     appendItem: vi.fn(),
     appendItems: vi.fn(),
+    projectWeekForConfig: vi.fn(),
     attachItemLink: vi.fn()
   };
 });
@@ -140,6 +141,7 @@ describe.each(routes)('$name week-key guard', route => {
       week,
       items: [{ id: 'item-1', taskId: 'post', note: 'note', link: null }]
     }));
+    mocks.projectWeekForConfig.mockImplementation(week => week);
     mocks.removeEntry.mockImplementation(() => {
       throw new mocks.WeekError('Entry not found');
     });

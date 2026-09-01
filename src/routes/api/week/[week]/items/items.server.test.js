@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     writeWeek: vi.fn(),
     appendItems: vi.fn(),
     removeItems: vi.fn(),
+    projectWeekForConfig: vi.fn(),
     attachItemLink: vi.fn()
   };
 });
@@ -22,6 +23,7 @@ vi.mock('$lib/weeks.js', () => ({
   writeWeek: mocks.writeWeek,
   appendItems: mocks.appendItems,
   removeItems: mocks.removeItems,
+  projectWeekForConfig: mocks.projectWeekForConfig,
   attachItemLink: mocks.attachItemLink
 }));
 
@@ -32,12 +34,13 @@ const cfg = {
   tasks: [
     { id: 'post', link: 'required' },
     { id: 'invites', link: 'optional' }
-  ]
+  ],
+  metrics: []
 };
 const baseWeek = {
   week: '2026-W35',
-  counts: { post: 6, invites: 2 },
-  metrics: {},
+  counts: { post: 6, invites: 2, archived: 7 },
+  metrics: { archived_metric: 3 },
   items: [
     { id: 'post-1', taskId: 'post', at: '2026-08-28T00:00:00.000Z', note: 'one', link: null },
     { id: 'invite-1', taskId: 'invites', at: '2026-08-29T00:00:00.000Z', note: 'two', link: null },
@@ -60,6 +63,15 @@ describe('week item routes', () => {
     mocks.isValidWeekKey.mockReturnValue(true);
     mocks.loadConfig.mockReturnValue(cfg);
     mocks.readWeek.mockReturnValue(structuredClone(baseWeek));
+    mocks.projectWeekForConfig.mockImplementation((week, config) => {
+      const taskIds = new Set(config.tasks.map(task => task.id));
+      const metricIds = new Set(config.metrics.map(metric => metric.id));
+      return {
+        ...week,
+        counts: Object.fromEntries(Object.entries(week.counts).filter(([id]) => taskIds.has(id))),
+        metrics: Object.fromEntries(Object.entries(week.metrics).filter(([id]) => metricIds.has(id)))
+      };
+    });
     mocks.appendItems.mockImplementation((week, { taskId, notes }) => {
       const items = notes.map((note, index) => ({
         id: `new-${index + 1}`,
@@ -100,12 +112,15 @@ describe('week item routes', () => {
 
     expect(result.status).toBe(200);
     expect(result.body.items.map(item => item.note)).toEqual(notes);
-    expect(result.body.week.counts.post).toBe(9);
+    expect(result.body.week.counts).toEqual({ post: 9, invites: 2 });
+    expect(result.body.week.metrics).toEqual({});
     expect(result.body.week.items.slice(-3)).toEqual(result.body.items);
     expect(mocks.appendItems).toHaveBeenCalledWith(expect.any(Object), { taskId: 'post', notes });
     expect(mocks.readWeek).toHaveBeenCalledTimes(1);
     expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
-    expect(mocks.writeWeek).toHaveBeenCalledWith('2026-W35', result.body.week);
+    expect(mocks.writeWeek.mock.calls[0][1].counts).toEqual({ post: 9, invites: 2, archived: 7 });
+    expect(mocks.writeWeek.mock.calls[0][1].metrics).toEqual({ archived_metric: 3 });
+    expect(mocks.projectWeekForConfig).toHaveBeenCalledWith(mocks.writeWeek.mock.calls[0][1], cfg);
   });
 
   it.each([1, 50])('POST accepts the %i-note boundary', async (size) => {
@@ -205,7 +220,9 @@ describe('week item routes', () => {
     });
     expect(mocks.readWeek).toHaveBeenCalledTimes(1);
     expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
-    expect(mocks.writeWeek).toHaveBeenCalledWith('2026-W35', result.body.week);
+    expect(mocks.writeWeek.mock.calls[0][1].counts).toEqual({ post: 4, invites: 2, archived: 7 });
+    expect(mocks.writeWeek.mock.calls[0][1].metrics).toEqual({ archived_metric: 3 });
+    expect(mocks.projectWeekForConfig).toHaveBeenCalledWith(mocks.writeWeek.mock.calls[0][1], cfg);
   });
 
   it.each([
