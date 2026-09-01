@@ -3,6 +3,7 @@
   import ItemAddDialog from './ItemAddDialog.svelte';
   import ItemRemoveDialog from './ItemRemoveDialog.svelte';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
+  import { dateToWeekKey } from '$lib/utils/isoWeek.js';
   import { gradientStops, middleStopPosition, progressPct } from '$lib/utils/progress.js';
   import { taskColorClass, taskVisual } from '$lib/utils/taskVisuals.js';
 
@@ -63,7 +64,6 @@
   let addVersion = $state(0);
   let removeVersion = $state(0);
   let addItemId = $state(null);
-  let addWeekKey = $state('');
   let adding = $state(false);
   let pendingAdds = 0;
   let burstTapCount = 0;
@@ -75,13 +75,14 @@
     try {
       while (pendingAdds > 0) {
         const batchSize = Math.min(pendingAdds, 50);
-        const weekKey = store.weekKey;
         const activeDate = store.activeDate;
-        const at = activeDate ? localNoonIso(activeDate, store.config.timezone) : undefined;
+        const timezone = store.config.timezone;
+        const targetWeekKey = dateToWeekKey(`${activeDate}T12:00:00`, timezone);
+        const at = localNoonIso(activeDate, timezone);
         pendingAdds -= batchSize;
 
         try {
-          const response = await fetch(`${base}/api/week/${weekKey}/items`, {
+          const response = await fetch(`${base}/api/week/${targetWeekKey}/items`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -94,28 +95,39 @@
 
           const result = await response.json();
           const createdItems = Array.isArray(result.items) ? result.items : [];
-          store.replaceWeek(result.week);
+          const currentActiveWeekKey = dateToWeekKey(
+            `${store.activeDate}T12:00:00`,
+            store.config.timezone
+          );
+          if (result.week?.week === targetWeekKey && targetWeekKey === currentActiveWeekKey) {
+            store.replaceWeek(result.week);
+            if (pendingAdds > 0) store.bumpLocalCount(task.id, pendingAdds);
+          }
           store.adjustAllTimeTotal(task.id, createdItems.length);
-          store.markWeekDirty(weekKey);
-
-          if (pendingAdds > 0) store.bumpLocalCount(task.id, pendingAdds);
+          store.markWeekDirty(targetWeekKey);
 
           const createdItemId = createdItems[0]?.id;
           const configTask = store.config.tasks.find((candidate) => candidate.id === task.id);
           if (
             burstTapCount === 1 &&
             pendingAdds === 0 &&
+            targetWeekKey === currentActiveWeekKey &&
             configTask?.showPopup === true &&
             typeof createdItemId === 'string'
           ) {
             removeOpen = false;
             addItemId = createdItemId;
-            addWeekKey = weekKey;
             addVersion += 1;
             addOpen = true;
           }
         } catch {
-          store.bumpLocalCount(task.id, -batchSize);
+          const currentActiveWeekKey = dateToWeekKey(
+            `${store.activeDate}T12:00:00`,
+            store.config.timezone
+          );
+          if (store.week.week === targetWeekKey && targetWeekKey === currentActiveWeekKey) {
+            store.bumpLocalCount(task.id, -batchSize);
+          }
         }
       }
     } finally {
@@ -191,12 +203,12 @@
 
 {#if addOpen && addItemId}
   {#key addVersion}
-    <ItemAddDialog weekKey={addWeekKey} itemId={addItemId} />
+    <ItemAddDialog itemId={addItemId} />
   {/key}
 {/if}
 
 {#if removeOpen}
   {#key removeVersion}
-    <ItemRemoveDialog taskId={task.id} weekKey={store.weekKey} />
+    <ItemRemoveDialog taskId={task.id} />
   {/key}
 {/if}

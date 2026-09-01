@@ -7,6 +7,7 @@
   import { onMount, tick } from 'svelte';
   import { isAllowedUrl } from '$lib/utils/safeUrl.js';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
+  import { dateToWeekKey } from '$lib/utils/isoWeek.js';
   import {
     focusFirstInPopup,
     getPopupStore,
@@ -14,7 +15,7 @@
     usePopupEscapeHandler
   } from '$lib/utils/popupStore.svelte.js';
 
-  let { taskId, weekKey } = $props();
+  let { taskId } = $props();
 
   const store = getWeekStore();
   const popupStore = getPopupStore();
@@ -71,6 +72,10 @@
 
     removing = true;
     error = '';
+    const targetWeekKey = dateToWeekKey(
+      `${store.activeDate}T12:00:00`,
+      store.config.timezone
+    );
     const itemIds = items.filter((item) => selected.has(item.id)).map((item) => item.id);
     if (itemIds.length === 0) {
       selected = new Set();
@@ -79,7 +84,7 @@
     }
 
     try {
-      const response = await fetch(`${base}/api/week/${weekKey}/items`, {
+      const response = await fetch(`${base}/api/week/${targetWeekKey}/items`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId, itemIds })
@@ -87,9 +92,15 @@
       if (!response.ok) throw new Error('Item removal failed');
 
       const result = await response.json();
-      store.replaceWeek(result.week);
+      const currentActiveWeekKey = dateToWeekKey(
+        `${store.activeDate}T12:00:00`,
+        store.config.timezone
+      );
+      if (result.week?.week === targetWeekKey && targetWeekKey === currentActiveWeekKey) {
+        store.replaceWeek(result.week);
+      }
       store.adjustAllTimeTotal(taskId, -result.removedIds.length);
-      store.markWeekDirty(weekKey);
+      store.markWeekDirty(targetWeekKey);
       selected = new Set();
       visible = false;
       popupStore.close(popupId);

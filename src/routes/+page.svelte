@@ -85,6 +85,8 @@
   let selectedRange = $state(initialCalendar?.range ?? null);
   let activityWeeks = $state(untrack(() => data.activityWeeks ?? {}));
   let activeDate = $state(initialActiveDate);
+  let activeDateLoadError = $state('');
+  let lastLoadedActiveDate = initialActiveDate;
   let activeWeekRequestId = 0;
   let requestedWeekKey = '';
   let activeWeekAbortController;
@@ -100,6 +102,11 @@
     store.replaceConfig(reloaded.config);
     store.replaceAllTimeTotals(reloaded.allTimeTotals);
     activityWeeks = reloaded.activityWeeks;
+    const today = todayInTimezone(reloaded.config.timezone);
+    activeDate = today;
+    lastLoadedActiveDate = today;
+    activeDateLoadError = '';
+    store.setActiveDate(today);
   });
 
   $effect(() => {
@@ -110,8 +117,14 @@
     const timezone = untrack(() => store.config.timezone);
     const activeWeekKey = dateToWeekKey(`${selectedDate}T12:00:00`, timezone);
     const displayedWeekKey = untrack(() => store.weekKey);
-    if (activeWeekKey === displayedWeekKey || activeWeekKey === requestedWeekKey) return;
+    if (activeWeekKey === displayedWeekKey) {
+      lastLoadedActiveDate = selectedDate;
+      activeDateLoadError = '';
+      return;
+    }
+    if (activeWeekKey === requestedWeekKey) return;
 
+    activeDateLoadError = '';
     requestedWeekKey = activeWeekKey;
     const requestId = ++activeWeekRequestId;
     const controller = new AbortController();
@@ -125,9 +138,17 @@
         });
         if (!response.ok) throw new Error(`Could not load week ${activeWeekKey}`);
         const fresh = await response.json();
-        if (requestId === activeWeekRequestId) store.replaceWeek(fresh);
+        if (requestId === activeWeekRequestId) {
+          store.replaceWeek(fresh);
+          lastLoadedActiveDate = selectedDate;
+          activeDateLoadError = '';
+        }
       } catch (error) {
-        if (error?.name !== 'AbortError') console.error(error);
+        if (error?.name !== 'AbortError' && requestId === activeWeekRequestId) {
+          activeDateLoadError = "Couldn't load that week; kept the previous date.";
+          activeDate = lastLoadedActiveDate;
+          store.setActiveDate(lastLoadedActiveDate);
+        }
       } finally {
         if (requestId === activeWeekRequestId) {
           requestedWeekKey = '';
@@ -183,6 +204,9 @@
           bind:value={activeDate}
         />
       </label>
+      {#if activeDateLoadError}
+        <p class="pb-2 text-xs text-base-content/60" role="status">{activeDateLoadError}</p>
+      {/if}
     </div>
     <WeekLanes />
     <DiaryBox weekKey={store.weekKey} initialEntries={store.week.entries} />

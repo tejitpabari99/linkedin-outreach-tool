@@ -6,6 +6,7 @@
   import { base } from '$app/paths';
   import { onMount, tick } from 'svelte';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
+  import { dateToWeekKey } from '$lib/utils/isoWeek.js';
   import {
     focusFirstInPopup,
     getPopupStore,
@@ -13,7 +14,7 @@
     usePopupEscapeHandler
   } from '$lib/utils/popupStore.svelte.js';
 
-  let { weekKey, itemId } = $props();
+  let { itemId } = $props();
 
   const store = getWeekStore();
   const popupStore = getPopupStore();
@@ -38,9 +39,13 @@
 
     saving = true;
     error = '';
+    const targetWeekKey = dateToWeekKey(
+      `${store.activeDate}T12:00:00`,
+      store.config.timezone
+    );
 
     try {
-      const response = await fetch(`${base}/api/week/${weekKey}/items/${itemId}`, {
+      const response = await fetch(`${base}/api/week/${targetWeekKey}/items/${itemId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note })
@@ -48,8 +53,14 @@
       if (!response.ok) throw new Error('Item note update failed');
 
       const result = await response.json();
-      store.replaceWeek(result.week);
-      store.markWeekDirty(weekKey);
+      const currentActiveWeekKey = dateToWeekKey(
+        `${store.activeDate}T12:00:00`,
+        store.config.timezone
+      );
+      if (result.week?.week === targetWeekKey && targetWeekKey === currentActiveWeekKey) {
+        store.replaceWeek(result.week);
+      }
+      store.markWeekDirty(targetWeekKey);
       value = '';
       visible = false;
       popupStore.close(popupId);
