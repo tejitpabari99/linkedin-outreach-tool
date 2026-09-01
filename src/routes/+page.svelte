@@ -1,23 +1,44 @@
 <script>
   import { untrack } from 'svelte';
+  import AppHeader from '$lib/components/AppHeader.svelte';
   import Confetti from '$lib/components/Confetti.svelte';
   import DiaryBox from '$lib/components/DiaryBox.svelte';
-  import DiaryLog from '$lib/components/DiaryLog.svelte';
-  import HistoryStrip from '$lib/components/HistoryStrip.svelte';
-  import MetricsRow from '$lib/components/MetricsRow.svelte';
   import MonthCalendar from '$lib/components/MonthCalendar.svelte';
-  import PinnedLinks from '$lib/components/PinnedLinks.svelte';
-  import WeekFourCheck from '$lib/components/WeekFourCheck.svelte';
+  import TotalsRow from '$lib/components/TotalsRow.svelte';
+  import WeekGoals from '$lib/components/WeekGoals.svelte';
   import WeekLanes from '$lib/components/WeekLanes.svelte';
+  import WhatHappened from '$lib/components/WhatHappened.svelte';
   import { createWeekStore, provideWeekStore } from '$lib/stores/weekStore.svelte.js';
-  import { selectNextTask } from '$lib/utils/selectNext.js';
+  import { buildCalendarMonth } from '$lib/utils/calendarMonth.js';
+  import { createPopupStore, providePopupStore } from '$lib/utils/popupStore.svelte.js';
 
   let { data } = $props();
 
-  const store = untrack(() => data.configError ? null : createWeekStore(data.week, data.config));
-  if (store) provideWeekStore(store);
+  const store = untrack(() => data.configError
+    ? null
+    : createWeekStore(data.week, data.config, data.allTimeTotals));
+  if (store) {
+    provideWeekStore(store);
+    providePopupStore(createPopupStore());
+  }
 
-  const nextTaskId = $derived(store ? selectNextTask(store.config, store.week.counts) : null);
+  const initialCalendar = untrack(() => {
+    if (data.configError) return null;
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: data.config.timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+    const [year, month] = today.split('-').map(Number);
+    return {
+      month: buildCalendarMonth(year, month, data.activityWeeks, data.weekKey, today),
+      range: { start: today, end: today }
+    };
+  });
+
+  let selectedRange = $state(initialCalendar?.range ?? null);
+  let activityWeeks = $state(untrack(() => data.activityWeeks ?? {}));
   const leftCount = $derived(
     store ? store.config.tasks.filter((task) => (store.week.counts[task.id] ?? 0) < task.min).length : 0
   );
@@ -33,45 +54,34 @@
 </svelte:head>
 
 {#if data.configError}
-  <main class="config-error">
-    <p class="config-error-title">Config problem</p>
-    <p class="config-error-msg">{data.configError.message}</p>
-    <p class="config-error-hint">Nothing was changed. Fix <code>config/config.json</code> and reload.</p>
+  <main class="mx-auto mt-16 max-w-lg px-4 text-center text-base-content">
+    <div class="alert alert-error flex-col items-center gap-2" role="alert">
+      <h1 class="font-semibold">Config problem</h1>
+      <p>{data.configError.message}</p>
+      <p class="text-sm opacity-75">Nothing was changed. Fix <code class="rounded bg-base-300 px-1 py-0.5">config/config.json</code> and reload.</p>
+    </div>
   </main>
 {:else}
-  <main class="week-view">
+  <main class="mx-auto flex max-w-[900px] flex-col gap-5 px-4 pb-16 pt-4 sm:gap-7 sm:px-6 sm:pt-6">
+    <AppHeader />
     <Confetti weekKey={store.weekKey} config={store.config} />
-    <PinnedLinks links={store.config.links} weekKey={store.weekKey} />
-    <MetricsRow sparkline={data.sparkline} headlineMetricId={data.headlineMetricId} />
-    <WeekLanes {nextTaskId} />
+    <TotalsRow />
+    <WeekGoals weekFourResult={data.weekFourCheck} />
+    <WeekLanes />
     <DiaryBox weekKey={store.weekKey} initialEntries={store.week.entries} />
 
-    <!-- SLOT 5 — SP4: history strip + month calendar + next-week view.
-         getWeekStore() is available to anything rendered here. This section is expected
-         to require scrolling — only slots 1–4 are the "no scrolling to see the week"
-         requirement (BRAINSTORM §3.5). Do not remove or restyle this placeholder. -->
-    <section class="sp4-slot" data-slot="history-calendar">
-      <HistoryStrip weeks={data.historyWeeks} weeksCompletedCount={data.weeksCompletedCount} currentWeekKey={data.weekKey} />
-      <WeekFourCheck result={data.weekFourCheck} />
-      <MonthCalendar month={data.calendarMonth} nextWeek={data.nextWeekPreview} config={data.config} />
+    <section data-slot="activity-calendar">
+      <MonthCalendar
+        month={initialCalendar.month}
+        config={store.config}
+        {activityWeeks}
+        onRangeChange={(range) => selectedRange = range}
+        onWeeksChange={(weeks) => activityWeeks = weeks}
+      />
     </section>
 
-    <!-- SLOT 6 — SP4: reverse-chronological diary log with links.
-         Reuse EntryPreview.svelte (Task 10) for any entry still parseStatus:'pending' with a
-         proposed preview that isn't the most-recent one (DiaryBox only surfaces the latest). -->
-    <section class="sp4-slot" data-slot="diary-log">
-      <DiaryLog initial={data.logInitial} oldestLoadedWeek={data.logOldestLoadedWeek} config={data.config} />
+    <section data-slot="what-happened">
+      <WhatHappened range={selectedRange} weeksByKey={activityWeeks} config={store.config} />
     </section>
   </main>
 {/if}
-
-<style>
-  .week-view { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; display: flex; flex-direction: column; gap: 1.75rem; }
-  @media (max-width: 640px) {
-    .week-view { padding: 1.25rem 1rem 3rem; gap: 1.25rem; }
-  }
-  .config-error { max-width: 500px; margin: 4rem auto; padding: 1.5rem; text-align: center; }
-  .config-error-title { font-size: 1.1rem; font-weight: 600; color: var(--fg); margin-bottom: 0.75rem; }
-  .config-error-msg { color: var(--fg-secondary); margin-bottom: 1rem; }
-  .config-error-hint { color: var(--muted); font-size: 0.85rem; }
-</style>

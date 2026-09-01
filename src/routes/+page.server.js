@@ -6,30 +6,12 @@ import {
   WeekError,
   projectWeekForConfig,
   listWeekKeys,
-  nextWeekKey,
-  prevWeekKey,
-  weekKeyToRange
+  nextWeekKey
 } from '$lib/weeks.js';
-import { isoWeekKeyFromUTCDate } from '$lib/utils/isoWeek.js';
-import { summarizeWeekStatus } from '$lib/utils/historyStatus.js';
-import { buildCalendarMonth } from '$lib/utils/calendarMonth.js';
-import { weekFourCheck } from '$lib/utils/weekFourCheck.js';
-import { mergeLogRows } from '$lib/utils/mergeLogRows.js';
 import { sumAllTimeTotals } from '$lib/utils/allTimeTotals.js';
-
-const SPARKLINE_WEEKS = 12;
-const HISTORY_WEEKS_MAX = 52;
-
-function laterOf(a, b) {
-  return a > b ? a : b;
-}
-
-function weekNWeeksBefore(weekKey, n) {
-  const { start } = weekKeyToRange(weekKey);
-  const date = new Date(`${start}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() - n * 7);
-  return isoWeekKeyFromUTCDate(date);
-}
+import { summarizeWeekStatus } from '$lib/utils/historyStatus.js';
+import { isoWeekKeyFromUTCDate } from '$lib/utils/isoWeek.js';
+import { weekFourCheck } from '$lib/utils/weekFourCheck.js';
 
 function weekKeysBetween(startKey, endKey) {
   const keys = [];
@@ -80,7 +62,6 @@ export function load() {
   };
   const week = projectedWeek(weekKey);
 
-  const headlineMetric = config.metrics.find((metric) => metric.headline);
   const allKeys = listWeekKeys();
   const allTimeWeeks = [];
   for (const key of new Set([...allKeys, weekKey])) {
@@ -88,28 +69,15 @@ export function load() {
     if (!unreadableWeekKeys.has(key)) allTimeWeeks.push(allTimeWeek);
   }
   const allTimeTotals = sumAllTimeTotals(config, allTimeWeeks);
-  const sparkKeys = allKeys.filter((key) => key <= weekKey).slice(-SPARKLINE_WEEKS);
-  if (!sparkKeys.includes(weekKey)) sparkKeys.push(weekKey);
 
-  const sparkline = sparkKeys.map((key) => ({
-    week: key,
-    value: projectedWeek(key).metrics[headlineMetric.id] ?? null
-  }));
-
-  const firstWeek = allKeys.find((key) => key <= weekKey) ?? weekKey;
-  const windowStart = laterOf(firstWeek, weekNWeeksBefore(weekKey, HISTORY_WEEKS_MAX));
-  const historyKeys = weekKeysBetween(windowStart, weekKey).slice(-HISTORY_WEEKS_MAX);
-  const historyWeekData = historyKeys.map(projectedWeek);
-  const historyWeeks = historyWeekData.map((historyWeek) => summarizeWeekStatus(historyWeek, config));
-  const weeksCompletedCount = historyWeeks.filter((historyWeek) => historyWeek.status === 'filled').length;
-
-  const touchedWeeks = historyWeekData
-    .filter((historyWeek) => summarizeWeekStatus(historyWeek, config).touched)
-    .map((historyWeek) => ({
-      week: historyWeek.week,
+  const touchedWeeks = allTimeWeeks
+    .filter((candidate) => candidate.week <= weekKey && summarizeWeekStatus(candidate, config).touched)
+    .sort((a, b) => a.week.localeCompare(b.week))
+    .map((candidate) => ({
+      week: candidate.week,
       metrics: {
-        replies: historyWeek.metrics.replies ?? null,
-        calls_booked: historyWeek.metrics.calls_booked ?? null
+        replies: candidate.metrics.replies ?? null,
+        calls_booked: candidate.metrics.calls_booked ?? null
       }
     }));
   const weekFourResult = weekFourCheck(touchedWeeks);
@@ -120,16 +88,12 @@ export function load() {
     month: '2-digit',
     day: '2-digit'
   }).formatToParts(new Date());
-  const y = todayParts.find(({ type }) => type === 'year').value;
-  const m = todayParts.find(({ type }) => type === 'month').value;
-  const d = todayParts.find(({ type }) => type === 'day').value;
-  const todayStr = `${y}-${m}-${d}`;
-  const [calYear, calMonth] = [Number(y), Number(m)];
-  const monthWeekKeys = weekKeysOverlappingMonth(calYear, calMonth);
-  const weeksByKey = Object.fromEntries(monthWeekKeys.map((key) => [key, projectedWeek(key)]));
+  const year = Number(todayParts.find(({ type }) => type === 'year').value);
+  const month = Number(todayParts.find(({ type }) => type === 'month').value);
+  const monthWeekKeys = weekKeysOverlappingMonth(year, month);
   const activityWeeks = Object.fromEntries(
     monthWeekKeys.map((key) => {
-      const activityWeek = weeksByKey[key];
+      const activityWeek = projectedWeek(key);
       return [key, {
         week: activityWeek.week,
         entries: activityWeek.entries,
@@ -137,21 +101,6 @@ export function load() {
       }];
     })
   );
-  const calendarMonth = buildCalendarMonth(calYear, calMonth, weeksByKey, weekKey, todayStr);
-
-  const nextWeekPreview = {
-    weekKey: nextWeekKey(weekKey),
-    tasks: config.tasks.map((task) => ({
-      id: task.id,
-      label: task.label,
-      min: task.min,
-      target: task.target
-    }))
-  };
-
-  const prevKey = prevWeekKey(weekKey);
-  const prevWeek = projectedWeek(prevKey);
-  const logInitial = mergeLogRows([], [week, prevWeek]);
 
   return {
     configError: null,
@@ -161,14 +110,6 @@ export function load() {
     allTimeTotals,
     totalsIncomplete,
     activityWeeks,
-    sparkline,
-    headlineMetricId: headlineMetric.id,
-    historyWeeks,
-    weeksCompletedCount,
-    calendarMonth,
-    nextWeekPreview,
-    logInitial,
-    logOldestLoadedWeek: prevKey,
     weekFourCheck: weekFourResult
   };
 }
