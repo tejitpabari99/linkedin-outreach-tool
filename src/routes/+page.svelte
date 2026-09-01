@@ -22,23 +22,34 @@
     providePopupStore(createPopupStore());
   }
 
-  const initialCalendar = untrack(() => {
-    if (data.configError) return null;
+  function calendarSeedFor(loadData) {
+    if (loadData.configError) return null;
     const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: data.config.timezone,
+      timeZone: loadData.config.timezone,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
     }).format(new Date());
     const [year, month] = today.split('-').map(Number);
     return {
-      month: buildCalendarMonth(year, month, data.activityWeeks, data.weekKey, today),
+      month: buildCalendarMonth(year, month, loadData.activityWeeks, loadData.weekKey, today),
       range: { start: today, end: today }
     };
-  });
+  }
 
+  const initialCalendar = untrack(() => calendarSeedFor(data));
+  const calendarMonth = $derived(calendarSeedFor(data)?.month ?? null);
   let selectedRange = $state(initialCalendar?.range ?? null);
   let activityWeeks = $state(untrack(() => data.activityWeeks ?? {}));
+
+  $effect(() => {
+    const reloaded = data;
+    if (!store || reloaded.configError) return;
+    store.replaceWeek(reloaded.week);
+    store.replaceConfig(reloaded.config);
+    store.replaceAllTimeTotals(reloaded.allTimeTotals);
+    activityWeeks = reloaded.activityWeeks;
+  });
   const leftCount = $derived(
     store ? store.config.tasks.filter((task) => (store.week.counts[task.id] ?? 0) < task.min).length : 0
   );
@@ -71,13 +82,15 @@
     <DiaryBox weekKey={store.weekKey} initialEntries={store.week.entries} />
 
     <section data-slot="activity-calendar">
-      <MonthCalendar
-        month={initialCalendar.month}
-        config={store.config}
-        {activityWeeks}
-        onRangeChange={(range) => selectedRange = range}
-        onWeeksChange={(weeks) => activityWeeks = weeks}
-      />
+      {#key data}
+        <MonthCalendar
+          month={calendarMonth}
+          config={store.config}
+          activityWeeks={data.activityWeeks}
+          onRangeChange={(range) => selectedRange = range}
+          onWeeksChange={(weeks) => activityWeeks = weeks}
+        />
+      {/key}
     </section>
 
     <section data-slot="what-happened">
