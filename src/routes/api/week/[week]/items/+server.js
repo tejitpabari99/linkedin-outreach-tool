@@ -42,19 +42,20 @@ export async function POST({ params, request }) {
   if (invalidBody(body)) return validationError('Request body must be a JSON object');
 
   const { taskId, notes } = body;
-  if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
-    return validationError('notes must be an array containing 1 to 50 strings');
-  }
-  for (let index = 0; index < notes.length; index++) {
-    if (typeof notes[index] !== 'string') return validationError(`notes[${index}] must be a string`);
-    const trimmed = notes[index].trim();
-    if (trimmed.length === 0 || trimmed.length > 4000) {
-      return validationError(`notes[${index}] must contain 1 to 4000 characters after trimming`);
-    }
-  }
-
   const cfg = config.loadConfig();
   if (!validateTask(cfg, taskId)) return validationError(`Unknown task id "${taskId}"`);
+  if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
+    return validationError('notes must be an array containing 1 to 50 values');
+  }
+  for (let index = 0; index < notes.length; index++) {
+    const note = notes[index];
+    if (note !== null && typeof note !== 'string') {
+      return validationError(`notes[${index}] must be a string or null`);
+    }
+    if (typeof note === 'string' && note.trim().length > 4000) {
+      return validationError(`notes[${index}] must contain at most 4000 characters after trimming`);
+    }
+  }
   const loaded = readWeek(params.week, cfg);
   if (loaded.response) return loaded.response;
 

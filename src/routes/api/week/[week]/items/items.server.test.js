@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => {
     appendItems: vi.fn(),
     removeItems: vi.fn(),
     projectWeekForConfig: vi.fn(),
-    attachItemLink: vi.fn()
+    attachItemLink: vi.fn(),
+    setItemNote: vi.fn()
   };
 });
 
@@ -24,7 +25,8 @@ vi.mock('$lib/weeks.js', () => ({
   appendItems: mocks.appendItems,
   removeItems: mocks.removeItems,
   projectWeekForConfig: mocks.projectWeekForConfig,
-  attachItemLink: mocks.attachItemLink
+  attachItemLink: mocks.attachItemLink,
+  setItemNote: mocks.setItemNote
 }));
 
 import { DELETE, POST } from './+server.js';
@@ -101,6 +103,10 @@ describe('week item routes', () => {
       ...week,
       items: week.items.map(item => item.id === id ? { ...item, link } : item)
     }));
+    mocks.setItemNote.mockImplementation((week, id, note) => ({
+      ...week,
+      items: week.items.map(item => item.id === id ? { ...item, note } : item)
+    }));
   });
 
   it('POST creates an ordered batch, increments by N, writes once, and returns the projected week', async () => {
@@ -121,6 +127,23 @@ describe('week item routes', () => {
     expect(mocks.writeWeek.mock.calls[0][1].counts).toEqual({ post: 9, invites: 2, archived: 7 });
     expect(mocks.writeWeek.mock.calls[0][1].metrics).toEqual({ archived_metric: 3 });
     expect(mocks.projectWeekForConfig).toHaveBeenCalledWith(mocks.writeWeek.mock.calls[0][1], cfg);
+  });
+
+  it('POST creates one bare item from null and returns the projected incremented week', async () => {
+    const result = await responseBody(await POST({
+      params: { week: '2026-W35' },
+      request: requestWith({ taskId: 'invites', notes: [null] })
+    }));
+
+    expect(result.status).toBe(200);
+    expect(result.body.items).toHaveLength(1);
+    expect(result.body.items[0]).toMatchObject({ taskId: 'invites', note: null, link: null });
+    expect(result.body.week.counts).toEqual({ post: 6, invites: 3 });
+    expect(result.body.week.counts.archived).toBeUndefined();
+    expect(mocks.appendItems).toHaveBeenCalledWith(expect.any(Object), {
+      taskId: 'invites', notes: [null]
+    });
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
   });
 
   it.each([1, 50])('POST accepts the %i-note boundary', async (size) => {
@@ -147,19 +170,17 @@ describe('week item routes', () => {
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
-  it('POST is all-or-nothing when one note is invalid', async () => {
-    mocks.appendItems.mockImplementation(() => {
-      throw new mocks.WeekError('notes[1] must contain 1 to 4000 characters after trimming');
-    });
+  it('POST is all-or-nothing when one note has an invalid type', async () => {
     const result = await responseBody(await POST({
       params: { week: '2026-W35' },
-      request: requestWith({ taskId: 'post', notes: ['valid', '   ', 'also valid'] })
+      request: requestWith({ taskId: 'post', notes: ['valid', 42, 'also valid'] })
     }));
 
     expect(result).toEqual({
       status: 400,
-      body: { error: 'notes[1] must contain 1 to 4000 characters after trimming' }
+      body: { error: 'notes[1] must be a string or null' }
     });
+    expect(mocks.appendItems).not.toHaveBeenCalled();
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
@@ -269,12 +290,12 @@ describe('week item routes', () => {
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
-  it('PATCH attaches a link while leaving counts unchanged', async () => {
+  it('PATCH attaches a link while leaving counts unchanged and returns the projected week', async () => {
     const link = { url: 'https://x', label: 'updated' };
     const week = {
       ...structuredClone(baseWeek),
-      counts: { post: 4, invites: 2 },
-      items: [{ id: 'item-1', taskId: 'post', link: null }]
+      counts: { post: 4, invites: 2, archived: 7 },
+      items: [{ id: 'item-1', taskId: 'post', note: null, link: null }]
     };
     mocks.readWeek.mockReturnValue(week);
 
@@ -285,16 +306,71 @@ describe('week item routes', () => {
 
     expect(result).toEqual({
       status: 200,
-      body: { item: { id: 'item-1', taskId: 'post', link } }
+      body: {
+        item: { id: 'item-1', taskId: 'post', note: null, link },
+        week: {
+          ...mocks.attachItemLink.mock.results[0].value,
+          counts: { post: 4, invites: 2 },
+          metrics: {}
+        }
+      }
     });
-    expect(mocks.writeWeek.mock.calls[0][1].counts).toEqual({ post: 4, invites: 2 });
+    expect(mocks.writeWeek.mock.calls[0][1].counts).toEqual({ post: 4, invites: 2, archived: 7 });
+  });
+
+  it('PATCH sets a trimmed note and returns the updated item plus projected week', async () => {
+    const result = await responseBody(await PATCH({
+      params: { week: '2026-W35', id: 'post-1' },
+      request: requestWith({ note: 'hello' })
+    }));
+
+    expect(result.status).toBe(200);
+    expect(result.body.item.note).toBe('hello');
+    expect(result.body.week.counts).toEqual({ post: 6, invites: 2 });
+    expect(result.body.week.counts.archived).toBeUndefined();
+    expect(mocks.setItemNote).toHaveBeenCalledWith(expect.any(Object), 'post-1', 'hello');
+    expect(mocks.attachItemLink).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
+  });
+
+  it('PATCH clears a note with null', async () => {
+    const result = await responseBody(await PATCH({
+      params: { week: '2026-W35', id: 'post-1' },
+      request: requestWith({ note: null })
+    }));
+
+    expect(result.status).toBe(200);
+    expect(result.body.item.note).toBeNull();
+    expect(mocks.setItemNote).toHaveBeenCalledWith(expect.any(Object), 'post-1', null);
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
+  });
+
+  it('PATCH rejects a note over 4000 characters without writing', async () => {
+    const result = await responseBody(await PATCH({
+      params: { week: '2026-W35', id: 'post-1' },
+      request: requestWith({ note: 'x'.repeat(4001) })
+    }));
+
+    expect(result.status).toBe(400);
+    expect(mocks.setItemNote).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).not.toHaveBeenCalled();
+  });
+
+  it('PATCH applies both note and link in one write', async () => {
+    const link = { url: 'https://x', label: 'updated' };
+    const result = await responseBody(await PATCH({
+      params: { week: '2026-W35', id: 'post-1' },
+      request: requestWith({ note: 'hello', link })
+    }));
+
+    expect(result.status).toBe(200);
+    expect(result.body.item).toMatchObject({ id: 'post-1', note: 'hello', link });
+    expect(mocks.setItemNote).toHaveBeenCalledTimes(1);
+    expect(mocks.attachItemLink).toHaveBeenCalledTimes(1);
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
   });
 
   it('PATCH returns 404 for an unknown item id without writing', async () => {
-    mocks.attachItemLink.mockImplementation(() => {
-      throw new mocks.WeekError('Item "missing" not found');
-    });
-
     const result = await responseBody(await PATCH({
       params: { week: '2026-W35', id: 'missing' },
       request: requestWith({ link: { url: 'https://x', label: 'x' } })

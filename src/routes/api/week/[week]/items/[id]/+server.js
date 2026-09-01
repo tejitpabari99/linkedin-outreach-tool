@@ -11,7 +11,12 @@ export async function PATCH({ params, request }) {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     return json({ error: 'Request body must be a JSON object' }, { status: 400 });
   }
-  const { link } = body;
+  const hasNote = Object.hasOwn(body, 'note');
+  const hasLink = Object.hasOwn(body, 'link');
+  if (!hasNote && !hasLink) {
+    return json({ error: 'Request body must contain "note" or "link"' }, { status: 400 });
+  }
+
   const cfg = config.loadConfig();
   let week;
   try {
@@ -22,13 +27,24 @@ export async function PATCH({ params, request }) {
     }
     throw e;
   }
+
+  if (!week.items.some(item => item.id === params.id)) {
+    return json({ error: `Item "${params.id}" not found in week ${params.week}` }, { status: 404 });
+  }
+  if (hasNote && body.note !== null && (
+    typeof body.note !== 'string' || body.note.trim().length === 0 || body.note.trim().length > 4000
+  )) {
+    return json({ error: 'note must contain 1 to 4000 characters after trimming, or be null' }, { status: 400 });
+  }
+
   try {
-    week = weeks.attachItemLink(week, params.id, link);
+    if (hasNote) week = weeks.setItemNote(week, params.id, body.note);
+    if (hasLink) week = weeks.attachItemLink(week, params.id, body.link);
   } catch (e) {
-    if (e instanceof weeks.WeekError) return json({ error: e.message }, { status: 404 });
+    if (e instanceof weeks.WeekError) return json({ error: e.message }, { status: 400 });
     throw e;
   }
   weeks.writeWeek(params.week, week);
   const item = week.items.find(i => i.id === params.id);
-  return json({ item });
+  return json({ item, week: weeks.projectWeekForConfig(week, cfg) });
 }
