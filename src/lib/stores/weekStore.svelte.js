@@ -26,6 +26,13 @@ export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals
 
   function replaceWeek(nextWeek) {
     week = nextWeek;
+    // Keep weekKey in lockstep with the week object. Every same-week caller passes a
+    // matching key (a no-op here); the post-import data-sync effect may pass a week for a
+    // different key (e.g. an imported bundle changed config.timezone), which would otherwise
+    // leave weekKey stale and route +/- taps to the wrong week file.
+    if (nextWeek && typeof nextWeek.week === 'string') {
+      weekKey = nextWeek.week;
+    }
   }
 
   function replaceConfig(nextConfig) {
