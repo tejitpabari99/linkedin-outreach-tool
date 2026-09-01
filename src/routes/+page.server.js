@@ -15,6 +15,7 @@ import { summarizeWeekStatus } from '$lib/utils/historyStatus.js';
 import { buildCalendarMonth } from '$lib/utils/calendarMonth.js';
 import { weekFourCheck } from '$lib/utils/weekFourCheck.js';
 import { mergeLogRows } from '$lib/utils/mergeLogRows.js';
+import { sumAllTimeTotals } from '$lib/utils/allTimeTotals.js';
 
 const SPARKLINE_WEEKS = 12;
 const HISTORY_WEEKS_MAX = 52;
@@ -58,10 +59,9 @@ export function load() {
   }
 
   const weekKey = currentWeekKey(config.timezone);
-  const rawWeek = readWeek(weekKey, config);
-  const week = projectWeekForConfig(rawWeek, config);
-
-  const projectedWeeks = new Map([[weekKey, week]]);
+  const projectedWeeks = new Map();
+  const unreadableWeekKeys = new Set();
+  let totalsIncomplete = false;
   const projectedWeek = (key) => {
     if (!projectedWeeks.has(key)) {
       let raw;
@@ -69,15 +69,25 @@ export function load() {
         raw = readWeek(key, config);
       } catch (e) {
         if (!(e instanceof WeekError)) throw e;
+        totalsIncomplete = true;
+        unreadableWeekKeys.add(key);
+        console.warn(`Skipping unreadable week ${key} while loading the home page: ${e.message}`);
         raw = emptyWeek(key, config);
       }
       projectedWeeks.set(key, projectWeekForConfig(raw, config));
     }
     return projectedWeeks.get(key);
   };
+  const week = projectedWeek(weekKey);
 
   const headlineMetric = config.metrics.find((metric) => metric.headline);
   const allKeys = listWeekKeys();
+  const allTimeWeeks = [];
+  for (const key of new Set([...allKeys, weekKey])) {
+    const allTimeWeek = projectedWeek(key);
+    if (!unreadableWeekKeys.has(key)) allTimeWeeks.push(allTimeWeek);
+  }
+  const allTimeTotals = sumAllTimeTotals(config, allTimeWeeks);
   const sparkKeys = allKeys.filter((key) => key <= weekKey).slice(-SPARKLINE_WEEKS);
   if (!sparkKeys.includes(weekKey)) sparkKeys.push(weekKey);
 
@@ -117,6 +127,16 @@ export function load() {
   const [calYear, calMonth] = [Number(y), Number(m)];
   const monthWeekKeys = weekKeysOverlappingMonth(calYear, calMonth);
   const weeksByKey = Object.fromEntries(monthWeekKeys.map((key) => [key, projectedWeek(key)]));
+  const activityWeeks = Object.fromEntries(
+    monthWeekKeys.map((key) => {
+      const activityWeek = weeksByKey[key];
+      return [key, {
+        week: activityWeek.week,
+        entries: activityWeek.entries,
+        items: activityWeek.items
+      }];
+    })
+  );
   const calendarMonth = buildCalendarMonth(calYear, calMonth, weeksByKey, weekKey, todayStr);
 
   const nextWeekPreview = {
@@ -138,6 +158,9 @@ export function load() {
     config,
     week,
     weekKey,
+    allTimeTotals,
+    totalsIncomplete,
+    activityWeeks,
     sparkline,
     headlineMetricId: headlineMetric.id,
     historyWeeks,
