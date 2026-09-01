@@ -3,9 +3,11 @@ import { bumpLocalCount as bumpCount, setLocalMetric as setMetric } from '$lib/u
 
 export const WEEK_STORE_KEY = 'linkedin-outreach:weekStore';
 
-export function createWeekStore(initialWeek, config) {
+export function createWeekStore(initialWeek, initialConfig, initialAllTimeTotals = {}) {
   let week = $state(initialWeek);
   let weekKey = $state(initialWeek.week);
+  let config = $state(initialConfig);
+  let allTimeTotals = $state(initialAllTimeTotals ?? {});
   let historyVersion = $state(0);
   let lastDirtyWeek = $state(null);
 
@@ -26,6 +28,22 @@ export function createWeekStore(initialWeek, config) {
     week = nextWeek;
   }
 
+  function replaceConfig(nextConfig) {
+    config = nextConfig;
+  }
+
+  function replaceAllTimeTotals(nextTotals) {
+    allTimeTotals = nextTotals ?? {};
+  }
+
+  function adjustAllTimeTotal(taskId, confirmedDelta) {
+    if (!Number.isInteger(confirmedDelta)) {
+      throw new TypeError('Confirmed all-time total delta must be an integer');
+    }
+    const current = allTimeTotals[taskId] ?? 0;
+    allTimeTotals[taskId] = Math.max(0, current + confirmedDelta);
+  }
+
   return {
     get week() {
       return week;
@@ -42,9 +60,15 @@ export function createWeekStore(initialWeek, config) {
     get config() {
       return config;
     },
+    get allTimeTotals() {
+      return allTimeTotals;
+    },
     bumpLocalCount,
     setLocalMetric,
     replaceWeek,
+    replaceConfig,
+    replaceAllTimeTotals,
+    adjustAllTimeTotal,
     markWeekDirty
   };
 }
