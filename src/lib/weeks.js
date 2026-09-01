@@ -12,6 +12,23 @@ const PROJECT_ROOT = process.env.PROJECT_ROOT || process.cwd();
 export const DATA_DIR = join(PROJECT_ROOT, 'data');
 
 const WEEK_KEY_RE = /^(\d{4})-W(\d{2})$/;
+const ISO_TIMESTAMP_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+
+export function isValidIsoTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const match = value.match(ISO_TIMESTAMP_RE);
+  if (!match) return false;
+
+  const [, year, month, day, hour, minute, second, , offsetHour, offsetMinute] = match;
+  const maxDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate();
+  if (Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > maxDay) return false;
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return false;
+  if (offsetHour !== undefined && (
+    Number(offsetHour) > 14 || Number(offsetMinute) > 59 ||
+    (Number(offsetHour) === 14 && Number(offsetMinute) !== 0)
+  )) return false;
+  return !Number.isNaN(Date.parse(value));
+}
 
 export function isValidWeekKey(key) {
   if (typeof key !== 'string') return false;
@@ -336,8 +353,12 @@ function currentCount(week, taskId) {
   return count;
 }
 
-export function appendItems(week, { taskId, notes }) {
+export function appendItems(week, { taskId, notes, at }) {
   assertTaskId(taskId, week.week);
+  const itemAt = at === undefined ? new Date().toISOString() : at;
+  if (!isValidIsoTimestamp(itemAt)) {
+    throw new WeekError('at must be a valid ISO timestamp string', week.week);
+  }
   if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
     throw new WeekError('notes must be an array containing 1 to 50 strings', week.week);
   }
@@ -358,7 +379,7 @@ export function appendItems(week, { taskId, notes }) {
   const items = normalizedNotes.map(note => ({
     id: randomUUID(),
     taskId,
-    at: new Date().toISOString(),
+    at: itemAt,
     note,
     link: null
   }));

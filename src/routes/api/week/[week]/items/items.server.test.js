@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => {
     WeekError,
     loadConfig: vi.fn(),
     isValidWeekKey: vi.fn(() => true),
+    isValidIsoTimestamp: vi.fn(value => (
+      typeof value === 'string' && !Number.isNaN(Date.parse(value)) &&
+      new Date(value).toISOString() === value
+    )),
     readWeek: vi.fn(),
     writeWeek: vi.fn(),
     appendItems: vi.fn(),
@@ -20,6 +24,7 @@ vi.mock('$lib/config.js', () => ({ loadConfig: mocks.loadConfig }));
 vi.mock('$lib/weeks.js', () => ({
   WeekError: mocks.WeekError,
   isValidWeekKey: mocks.isValidWeekKey,
+  isValidIsoTimestamp: mocks.isValidIsoTimestamp,
   readWeek: mocks.readWeek,
   writeWeek: mocks.writeWeek,
   appendItems: mocks.appendItems,
@@ -74,11 +79,11 @@ describe('week item routes', () => {
         metrics: Object.fromEntries(Object.entries(week.metrics).filter(([id]) => metricIds.has(id)))
       };
     });
-    mocks.appendItems.mockImplementation((week, { taskId, notes }) => {
+    mocks.appendItems.mockImplementation((week, { taskId, notes, at }) => {
       const items = notes.map((note, index) => ({
         id: `new-${index + 1}`,
         taskId,
-        at: '2026-08-31T00:00:00.000Z',
+        at: at ?? '2026-08-31T00:00:00.000Z',
         note,
         link: null
       }));
@@ -128,6 +133,36 @@ describe('week item routes', () => {
     expect(mocks.writeWeek.mock.calls[0][1].metrics).toEqual({ archived_metric: 3 });
     expect(mocks.projectWeekForConfig).toHaveBeenCalledWith(mocks.writeWeek.mock.calls[0][1], cfg);
   });
+
+  it('POST stamps every created item with an explicitly supplied backfill timestamp', async () => {
+    const at = '2026-08-15T19:00:00.000Z';
+    const result = await responseBody(await POST({
+      params: { week: '2026-W35' },
+      request: requestWith({ taskId: 'post', notes: ['first', 'second'], at })
+    }));
+
+    expect(result.status).toBe(200);
+    expect(result.body.items.map(item => item.at)).toEqual([at, at]);
+    expect(mocks.appendItems).toHaveBeenCalledWith(expect.any(Object), {
+      taskId: 'post', notes: ['first', 'second'], at
+    });
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['not-a-date', '2026-02-30T19:00:00.000Z', null, 123])(
+    'POST rejects invalid at value %j before reading or writing',
+    async (at) => {
+      const result = await responseBody(await POST({
+        params: { week: '2026-W35' },
+        request: requestWith({ taskId: 'post', notes: ['note'], at })
+      }));
+
+      expect(result.status).toBe(400);
+      expect(mocks.appendItems).not.toHaveBeenCalled();
+      expect(mocks.readWeek).not.toHaveBeenCalled();
+      expect(mocks.writeWeek).not.toHaveBeenCalled();
+    }
+  );
 
   it('POST creates one bare item from null and returns the projected incremented week', async () => {
     const result = await responseBody(await POST({

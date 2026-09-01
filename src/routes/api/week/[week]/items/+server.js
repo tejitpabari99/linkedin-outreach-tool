@@ -41,11 +41,15 @@ export async function POST({ params, request }) {
   const body = await request.json();
   if (invalidBody(body)) return validationError('Request body must be a JSON object');
 
-  const { taskId, notes } = body;
+  const { taskId, notes, at } = body;
+  const hasAt = Object.hasOwn(body, 'at');
   const cfg = config.loadConfig();
   if (!validateTask(cfg, taskId)) return validationError(`Unknown task id "${taskId}"`);
   if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
     return validationError('notes must be an array containing 1 to 50 values');
+  }
+  if (hasAt && !weeks.isValidIsoTimestamp(at)) {
+    return validationError('at must be a valid ISO timestamp string');
   }
   for (let index = 0; index < notes.length; index++) {
     const note = notes[index];
@@ -61,7 +65,11 @@ export async function POST({ params, request }) {
 
   let result;
   try {
-    result = weeks.appendItems(loaded.week, { taskId, notes });
+    result = weeks.appendItems(loaded.week, {
+      taskId,
+      notes,
+      ...(hasAt ? { at } : {})
+    });
   } catch (error) {
     if (error instanceof weeks.WeekError) return validationError(error.message);
     throw error;

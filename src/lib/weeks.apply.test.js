@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   emptyWeek, bumpCount, setMetric, appendEntry, applyEntryToWeek,
   discardEntry, markEntryFailed, removeEntry, appendItem, attachItemLink,
@@ -165,6 +165,40 @@ describe('appendItems', () => {
     expect(week.metrics).toEqual(input.metrics);
     expect(week.entries).toEqual(input.entries);
     expect(input).toEqual(before);
+  });
+
+  it('stamps every item with an explicitly supplied backfill timestamp', () => {
+    const at = '2026-08-15T19:00:00.000Z';
+    const { items } = appendItems(baseWeek(), {
+      taskId: 'comments', notes: ['first', 'second'], at
+    });
+
+    expect(items.map(item => item.at)).toEqual([at, at]);
+  });
+
+  it.each(['not-a-date', '2026-02-30T19:00:00.000Z', null, 123])(
+    'rejects invalid at value %j',
+    (at) => {
+      expect(() => appendItems(baseWeek(), {
+        taskId: 'comments', notes: ['note'], at
+      })).toThrow(WeekError);
+    }
+  );
+
+  it('uses the current time when at is omitted', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-01T16:55:57.860Z'));
+    try {
+      const { items } = appendItems(baseWeek(), {
+        taskId: 'comments', notes: ['first', 'second']
+      });
+      expect(items.map(item => item.at)).toEqual([
+        '2026-09-01T16:55:57.860Z',
+        '2026-09-01T16:55:57.860Z'
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([null, undefined, '', '   '])('appends a bare item for empty note value %j', (note) => {
