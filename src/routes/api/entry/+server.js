@@ -34,8 +34,12 @@ export async function POST({ request }) {
   if (!weeks.isValidWeekKey(weekKey)) {
     return json({ error: 'Invalid or missing "date"' }, { status: 400 });
   }
-  const week = weeks.readWeek(weekKey, cfg);
+  const result = await parseDiaryEntry({ text, config: cfg });
+  if (result.status === 'failed') {
+    return json({ status: 'failed', reason: result.reason });
+  }
 
+  const week = weeks.readWeek(weekKey, cfg);
   const entry = {
     id: randomUUID(),
     date,
@@ -43,27 +47,12 @@ export async function POST({ request }) {
     text,
     parseStatus: 'pending',
     parseError: null,
-    proposed: null,
-    ignored: null,
+    proposed: result.proposed,
+    ignored: result.ignored,
     applied: null
   };
   week.entries.push(entry);
-
   weeks.writeWeek(weekKey, week);
 
-  const result = await parseDiaryEntry({ text, config: cfg });
-  const freshWeek = weeks.readWeek(weekKey, cfg);
-  const freshEntry = freshWeek.entries.find(candidate => candidate.id === entry.id);
-  const outcomeEntry = freshEntry ?? entry;
-  if (result.status === 'ok') {
-    outcomeEntry.proposed = result.proposed;
-    outcomeEntry.ignored = result.ignored;
-  } else {
-    outcomeEntry.parseStatus = 'failed';
-    outcomeEntry.parseError = result.reason;
-  }
-
-  if (freshEntry) weeks.writeWeek(weekKey, freshWeek);
-
-  return json({ week: weekKey, entry: outcomeEntry });
+  return json({ status: 'ok', week: weekKey, entry });
 }

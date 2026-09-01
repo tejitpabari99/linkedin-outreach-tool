@@ -49,6 +49,7 @@ describe('POST /api/entry', () => {
     const result = await responseBody(response);
 
     expect(result.status).toBe(200);
+    expect(result.body.status).toBe('ok');
     expect(result.body.week).toBe('2026-W36');
     expect(result.body.entry).toMatchObject({
       date: '2026-09-02',
@@ -60,25 +61,24 @@ describe('POST /api/entry', () => {
       applied: null
     });
     expect(mocks.parseDiaryEntry).toHaveBeenCalledWith({ text: 'sent 6 invites', config: cfg });
-    expect(mocks.readWeek).toHaveBeenCalledTimes(2);
-    expect(mocks.writeWeek).toHaveBeenCalledTimes(2);
+    expect(mocks.readWeek).toHaveBeenCalledTimes(1);
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
   });
 
-  it('returns 200 and preserves verbatim text when parsing is unavailable', async () => {
-    const text = '  sent 6 invites\r\nverbatim  ';
+  it('returns failure without reading or writing when parsing is unavailable', async () => {
     mocks.parseDiaryEntry.mockResolvedValue({ status: 'failed', reason: 'config_missing' });
 
-    const response = await POST({ request: requestWith({ date: '2026-09-02', text }) });
+    const response = await POST({
+      request: requestWith({ date: '2026-09-02', text: 'sent 6 invites' })
+    });
     const result = await responseBody(response);
 
-    expect(result.status).toBe(200);
-    expect(result.body.entry).toMatchObject({
-      text,
-      parseStatus: 'failed',
-      parseError: 'config_missing'
+    expect(result).toEqual({
+      status: 200,
+      body: { status: 'failed', reason: 'config_missing' }
     });
-    const persistedWeek = mocks.writeWeek.mock.calls.at(-1)[1];
-    expect(persistedWeek.entries[0].text).toBe(text);
+    expect(mocks.readWeek).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -146,31 +146,25 @@ describe('POST /api/entry', () => {
     expect(mocks.writeWeek).not.toHaveBeenCalled();
   });
 
-  it('writes the full pending entry before waiting for the parser', async () => {
+  it('waits for parsing before reading or writing the week', async () => {
     let resolveParse;
     mocks.parseDiaryEntry.mockReturnValue(new Promise((resolve) => {
       resolveParse = resolve;
     }));
-    const text = `  ${'verbatim '.repeat(100)}\r\n`;
 
-    const postPromise = POST({ request: requestWith({ date: '2026-09-02', text }) });
+    const postPromise = POST({
+      request: requestWith({ date: '2026-09-02', text: 'pending parse' })
+    });
     await vi.waitFor(() => expect(mocks.parseDiaryEntry).toHaveBeenCalledTimes(1));
 
-    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
-    const [weekKey, weekAtFirstWrite] = mocks.writeWeek.mock.calls[0];
-    expect(weekKey).toBe('2026-W36');
-    expect(weekAtFirstWrite.entries[0]).toMatchObject({
-      date: '2026-09-02',
-      text,
-      parseStatus: 'pending',
-      parseError: null,
-      proposed: null,
-      ignored: null,
-      applied: null
-    });
+    expect(mocks.readWeek).not.toHaveBeenCalled();
+    expect(mocks.writeWeek).not.toHaveBeenCalled();
 
     resolveParse({ status: 'ok', proposed, ignored });
     await postPromise;
+
+    expect(mocks.readWeek).toHaveBeenCalledTimes(1);
+    expect(mocks.writeWeek).toHaveBeenCalledTimes(1);
   });
 
   it('uses the posted date at noon UTC to select a prior ISO week', async () => {

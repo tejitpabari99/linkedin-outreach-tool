@@ -93,20 +93,31 @@ afterEach(() => {
 });
 
 describe('POST /api/entry cross-cutting behavior', () => {
-  it('durably writes exact verbatim text before the parser promise resolves', async () => {
-    state.parseDiaryEntry.mockReturnValue(new Promise(() => {}));
+  it('touches no week file until parsing succeeds, then writes the exact text once', async () => {
+    let resolveParse;
+    state.parseDiaryEntry.mockReturnValue(new Promise((resolve) => {
+      resolveParse = resolve;
+    }));
     const text = '  exact first line\r\nsecond line with trailing spaces  ';
 
-    void createEntry({ request: requestWith({ date: '2026-09-02', text }) });
-
+    const post = createEntry({ request: requestWith({ date: '2026-09-02', text }) });
     const weekPath = join(state.dataDir, '2026-W36.json');
-    await vi.waitFor(() => expect(existsSync(weekPath)).toBe(true));
+    await vi.waitFor(() => expect(state.parseDiaryEntry).toHaveBeenCalledTimes(1));
+    expect(existsSync(weekPath)).toBe(false);
+
+    resolveParse({
+      status: 'ok',
+      proposed: { counts: { invites: 1 }, metrics: {} },
+      ignored: { counts: [], metrics: [] }
+    });
+    const response = await post;
+    const body = await response.json();
     const persisted = JSON.parse(readFileSync(weekPath, 'utf8'));
 
+    expect(body.status).toBe('ok');
     expect(persisted.entries).toHaveLength(1);
     expect(persisted.entries[0]).toMatchObject({ text, parseStatus: 'pending' });
-    expect(persisted.entries[0].text).toBe(text);
-    expect(state.parseDiaryEntry).toHaveBeenCalledTimes(1);
+    expect(weeks.writeWeek).toHaveBeenCalledTimes(1);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -138,10 +149,11 @@ describe('POST /api/entry cross-cutting behavior', () => {
     await firstPost;
 
     const persisted = JSON.parse(readFileSync(join(state.dataDir, '2026-W36.json'), 'utf8'));
-    expect(persisted.entries.map(entry => entry.text)).toEqual([
+    expect(persisted.entries).toHaveLength(2);
+    expect(persisted.entries.map(entry => entry.text)).toEqual(expect.arrayContaining([
       'first overlapping entry',
       'second overlapping entry'
-    ]);
+    ]));
   });
 
   it('keeps every non-LLM API route usable without calling the parser', async () => {
@@ -192,17 +204,20 @@ describe('POST /api/entry cross-cutting behavior', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('returns 200 with config_missing while preserving text when the LLM is unavailable', async () => {
+  it('returns config_missing and persists nothing when the LLM is unavailable', async () => {
     state.parseDiaryEntry.mockResolvedValue({ status: 'failed', reason: 'config_missing' });
-    const text = '  unavailable worker still preserves this\r\nverbatim  ';
+    const weekPath = join(state.dataDir, '2026-W36.json');
 
-    const response = await createEntry({ request: requestWith({ date: '2026-09-02', text }) });
+    const response = await createEntry({
+      request: requestWith({ date: '2026-09-02', text: 'unavailable worker' })
+    });
     const body = await response.json();
-    const persisted = JSON.parse(readFileSync(join(state.dataDir, '2026-W36.json'), 'utf8'));
 
     expect(response.status).toBe(200);
-    expect(body.entry).toMatchObject({ text, parseStatus: 'failed', parseError: 'config_missing' });
-    expect(persisted.entries[0]).toMatchObject({ text, parseStatus: 'failed', parseError: 'config_missing' });
+    expect(body).toEqual({ status: 'failed', reason: 'config_missing' });
+    expect(existsSync(weekPath)).toBe(false);
+    expect(weeks.readWeek('2026-W36', CONFIG).entries).toEqual([]);
+    expect(weeks.writeWeek).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
