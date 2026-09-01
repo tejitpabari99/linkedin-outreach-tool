@@ -32,41 +32,64 @@
   let addItemId = $state(null);
   let addWeekKey = $state('');
   let adding = $state(false);
+  let pendingAdds = 0;
+  let burstTapCount = 0;
 
-  async function tapAdd() {
+  async function processAddQueue() {
     if (adding) return;
 
-    const weekKey = store.weekKey;
     adding = true;
-    store.bumpLocalCount(task.id, 1);
-
     try {
-      const response = await fetch(`${base}/api/week/${weekKey}/items`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id, notes: [null] })
-      });
-      if (!response.ok) throw new Error('Item add failed');
+      while (pendingAdds > 0) {
+        const batchSize = Math.min(pendingAdds, 50);
+        const weekKey = store.weekKey;
+        pendingAdds -= batchSize;
 
-      const result = await response.json();
-      store.replaceWeek(result.week);
-      store.adjustAllTimeTotal(task.id, 1);
-      store.markWeekDirty(weekKey);
+        try {
+          const response = await fetch(`${base}/api/week/${weekKey}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId: task.id, notes: Array(batchSize).fill(null) })
+          });
+          if (!response.ok) throw new Error('Item add failed');
 
-      const createdItemId = result.items?.[0]?.id;
-      const configTask = store.config.tasks.find((candidate) => candidate.id === task.id);
-      if (configTask?.showPopup === true && typeof createdItemId === 'string') {
-        removeOpen = false;
-        addItemId = createdItemId;
-        addWeekKey = weekKey;
-        addVersion += 1;
-        addOpen = true;
+          const result = await response.json();
+          const createdItems = Array.isArray(result.items) ? result.items : [];
+          store.replaceWeek(result.week);
+          store.adjustAllTimeTotal(task.id, createdItems.length);
+          store.markWeekDirty(weekKey);
+
+          if (pendingAdds > 0) store.bumpLocalCount(task.id, pendingAdds);
+
+          const createdItemId = createdItems[0]?.id;
+          const configTask = store.config.tasks.find((candidate) => candidate.id === task.id);
+          if (
+            burstTapCount === 1 &&
+            pendingAdds === 0 &&
+            configTask?.showPopup === true &&
+            typeof createdItemId === 'string'
+          ) {
+            removeOpen = false;
+            addItemId = createdItemId;
+            addWeekKey = weekKey;
+            addVersion += 1;
+            addOpen = true;
+          }
+        } catch {
+          store.bumpLocalCount(task.id, -batchSize);
+        }
       }
-    } catch {
-      store.bumpLocalCount(task.id, -1);
     } finally {
       adding = false;
+      burstTapCount = 0;
     }
+  }
+
+  function tapAdd() {
+    pendingAdds += 1;
+    burstTapCount += 1;
+    store.bumpLocalCount(task.id, 1);
+    if (!adding) void processAddQueue();
   }
 
   function tapRemove() {
@@ -121,7 +144,6 @@
       class="btn btn-square btn-primary btn-sm h-10 min-h-10 w-10 min-w-10 shrink-0 text-lg"
       type="button"
       onclick={tapAdd}
-      disabled={adding}
       aria-busy={adding}
       aria-label={`Add logged ${visual.short}`}
     >+</button>
