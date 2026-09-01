@@ -177,6 +177,29 @@ describe('validateConfig — tasks', () => {
     bad.tasks[2].linePct = linePct;
     expectConfigError(() => validateConfig(bad), 'tasks[2].linePct');
   });
+
+  it('defaults omitted showPopup to true on a normalized clone without mutating input', () => {
+    const input = clone(SEED_CONFIG);
+    const before = clone(input);
+
+    const result = validateConfig(input);
+
+    expect(result.tasks.map(task => task.showPopup)).toEqual([true, true, true, true, true]);
+    expect(input).toEqual(before);
+    expect(input.tasks.every(task => !('showPopup' in task))).toBe(true);
+  });
+
+  it.each([true, false])('accepts showPopup %j', (showPopup) => {
+    const ok = clone(SEED_CONFIG);
+    ok.tasks[1].showPopup = showPopup;
+    expect(validateConfig(ok).tasks[1].showPopup).toBe(showPopup);
+  });
+
+  it.each([1, 'true', null])('rejects invalid showPopup %j with its exact indexed field', (showPopup) => {
+    const bad = clone(SEED_CONFIG);
+    bad.tasks[2].showPopup = showPopup;
+    expectConfigError(() => validateConfig(bad), 'tasks[2].showPopup');
+  });
 });
 
 describe('validateConfig — metrics', () => {
@@ -250,11 +273,12 @@ describe('loadConfig', () => {
     expect(loadConfig(path).tasks.map(task => task.linePct)).toEqual([75, 75, 75, 75, 75]);
   });
 
-  it('writeConfig persists normalized linePct defaults for an old config', () => {
+  it('writeConfig persists normalized linePct and showPopup defaults for an old config', () => {
     const path = join(dir, 'config.json');
     writeConfig(clone(SEED_CONFIG), path);
     const stored = JSON.parse(readFileSync(path, 'utf8'));
     expect(stored.tasks.map(task => task.linePct)).toEqual([75, 75, 75, 75, 75]);
+    expect(stored.tasks.map(task => task.showPopup)).toEqual([true, true, true, true, true]);
   });
 });
 

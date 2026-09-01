@@ -91,6 +91,10 @@ export function validateConfig(raw) {
     if (!Number.isInteger(task.linePct) || task.linePct < 1 || task.linePct > 100) {
       throw new ConfigError(`Task "${task.id}": "linePct" must be an integer from 1 to 100 (got ${JSON.stringify(task.linePct)})`, `tasks[${i}].linePct`);
     }
+    if (!('showPopup' in task)) task.showPopup = true;
+    if (typeof task.showPopup !== 'boolean') {
+      throw new ConfigError(`Task "${task.id}": "showPopup" must be a boolean (got ${JSON.stringify(task.showPopup)})`, `tasks[${i}].showPopup`);
+    }
     if (task.link !== 'optional' && task.link !== 'required') {
       throw new ConfigError(`Task "${task.id}": "link" must be "optional" or "required" (got ${JSON.stringify(task.link)})`, `tasks[${i}].link`);
     }

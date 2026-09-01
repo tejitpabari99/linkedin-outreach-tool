@@ -83,7 +83,7 @@ describe.sequential('POST /api/import real-disk safety', () => {
     expect(JSON.parse(actualFs.readFileSync(livePath, 'utf8'))).toEqual(imported);
   });
 
-  it('persists the linePct default when importing an old bundle config', async () => {
+  it('persists normalized task defaults when importing an old bundle config', async () => {
     const oldConfig = {
       version: 1,
       name: 'Outreach',
@@ -98,7 +98,9 @@ describe.sequential('POST /api/import real-disk safety', () => {
 
     expect(response.status).toBe(200);
     const persisted = JSON.parse(actualFs.readFileSync(configPath, 'utf8'));
-    expect(persisted.tasks[0]).toEqual({ ...oldConfig.tasks[0], linePct: 75 });
+    expect(persisted.tasks[0]).toEqual({
+      ...oldConfig.tasks[0], linePct: 75, showPopup: true
+    });
   });
 
   it('validates before backup or write, leaving the original untouched', async () => {

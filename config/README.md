@@ -37,7 +37,7 @@ lanes shown side by side; more than 3–4 will likely look cramped.
 ## `tasks[]`
 
 ```json
-{ "id": "invites", "lane": "outreach", "label": "Targeted connection requests", "min": 10, "target": 15, "linePct": 75, "link": "optional" }
+{ "id": "invites", "lane": "outreach", "label": "Targeted connection requests", "min": 10, "target": 15, "linePct": 75, "showPopup": true, "link": "optional" }
 ```
 
 | Field     | Type    | Required | Notes |
@@ -48,6 +48,7 @@ lanes shown side by side; more than 3–4 will likely look cramped.
 | `min`     | integer | yes | The quota that clears the week for this task (D4). Must be `>= 0`. |
 | `target`  | integer | yes | The stretch number and 100% point on the progress bar. Must be `>= min`. `min > target` is a hard config-validation error. |
 | `linePct` | integer | no (default `75`) | Independent visual guide position on the progress bar, from `1` to `100`. It is not a quota and is not an alias for `min`; changing it never changes `min` or `target`. The normalized config returned by the app always contains it. |
+| `showPopup` | boolean | no (default `true`) | When `true`, `+` counts immediately and then opens the optional link/note popup. When `false`, `+` just counts without opening the popup. The normalized config always contains it. |
 | `link`    | `"optional" \| "required"` | yes | D15 display hint. `"required"` nudges the UI to ask for a link, but never blocks a manual increment. SP6 freeform notes are valid concrete items for every task, including posts. `"optional"` carries no link nudge. |
 
 Setting `min` equal to `target` means there is no stretch tier for that task — it is a single quota.
@@ -104,6 +105,7 @@ Enforced on every load (`GET /api/config`, and again inside `PUT /api/config` be
   though avoiding that is clearer in practice).
 - `tasks[].min <= tasks[].target`, both `>= 0`, both integers.
 - Omitted `tasks[].linePct` is normalized to `75`; a present value must be an integer from `1` to `100`.
+- Omitted `tasks[].showPopup` is normalized to `true`; a present value must be a boolean.
 - `tasks[].link` is exactly `"optional"` or `"required"`; it never gates a manual increment.
 - Exactly one `metrics[].headline === true`.
 
