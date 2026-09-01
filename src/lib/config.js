@@ -38,6 +38,8 @@ export function validateConfig(raw) {
     throw new ConfigError('Config must be a JSON object', null);
   }
 
+  raw = structuredClone(raw);
+
   for (const key of REQUIRED_TOP_LEVEL_KEYS) {
     if (!(key in raw)) {
       throw new ConfigError(`Config is missing required field "${key}"`, key);
@@ -94,6 +96,10 @@ export function validateConfig(raw) {
     if (task.min > task.target) {
       throw new ConfigError(`Task "${task.id}": min (${task.min}) is greater than target (${task.target})`, `tasks[${i}]`);
     }
+    if (!('linePct' in task)) task.linePct = 75;
+    if (!Number.isInteger(task.linePct) || task.linePct < 1 || task.linePct > 100) {
+      throw new ConfigError(`Task "${task.id}": "linePct" must be an integer from 1 to 100 (got ${JSON.stringify(task.linePct)})`, `tasks[${i}].linePct`);
+    }
     if (task.link !== 'optional' && task.link !== 'required') {
       throw new ConfigError(`Task "${task.id}": "link" must be "optional" or "required" (got ${JSON.stringify(task.link)})`, `tasks[${i}].link`);
     }
@@ -147,10 +153,10 @@ export function loadConfig(configPath = CONFIG_PATH) {
 }
 
 export function writeConfig(config, configPath = CONFIG_PATH) {
-  validateConfig(config); // defensive re-validation — never persists something that wouldn't itself load cleanly
+  const normalized = validateConfig(config); // defensive re-validation — never persists something that wouldn't itself load cleanly
   const dir = dirname(configPath);
   mkdirSync(dir, { recursive: true });
   const tmpPath = join(dir, `.config.json.tmp-${process.pid}-${Date.now()}`);
-  writeFileSync(tmpPath, JSON.stringify(config, null, 2), 'utf8');
+  writeFileSync(tmpPath, JSON.stringify(normalized, null, 2), 'utf8');
   renameSync(tmpPath, configPath); // same-directory atomic rename
 }

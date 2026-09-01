@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { validateConfig, loadConfig, ConfigError } from './config.js';
+import { validateConfig, loadConfig, writeConfig, ConfigError } from './config.js';
 
 const SEED_CONFIG = {
   version: 1,
@@ -152,6 +152,31 @@ describe('validateConfig — tasks', () => {
     bad.tasks[0].id = 'Invites!';
     expectConfigError(() => validateConfig(bad), 'tasks[0].id');
   });
+
+  it('defaults omitted linePct to 75 on a normalized clone without mutating input', () => {
+    const input = clone(SEED_CONFIG);
+    const before = clone(input);
+
+    const result = validateConfig(input);
+
+    expect(result).not.toBe(input);
+    expect(result.tasks).not.toBe(input.tasks);
+    expect(result.tasks.map(task => task.linePct)).toEqual([75, 75, 75, 75, 75]);
+    expect(input).toEqual(before);
+    expect(input.tasks.every(task => !('linePct' in task))).toBe(true);
+  });
+
+  it.each([1, 100])('accepts linePct boundary %i', (linePct) => {
+    const ok = clone(SEED_CONFIG);
+    ok.tasks[1].linePct = linePct;
+    expect(validateConfig(ok).tasks[1].linePct).toBe(linePct);
+  });
+
+  it.each([0, 101, 1.5, '75', null])('rejects invalid linePct %j with its exact indexed field', (linePct) => {
+    const bad = clone(SEED_CONFIG);
+    bad.tasks[2].linePct = linePct;
+    expectConfigError(() => validateConfig(bad), 'tasks[2].linePct');
+  });
 });
 
 describe('validateConfig — metrics', () => {
@@ -217,6 +242,19 @@ describe('loadConfig', () => {
     const path = join(dir, 'bad.json');
     writeFileSync(path, '{ not valid json', 'utf8');
     expectConfigError(() => loadConfig(path), null);
+  });
+
+  it('returns normalized tasks for an old config without linePct', () => {
+    const path = join(dir, 'config.json');
+    writeFileSync(path, JSON.stringify(SEED_CONFIG), 'utf8');
+    expect(loadConfig(path).tasks.map(task => task.linePct)).toEqual([75, 75, 75, 75, 75]);
+  });
+
+  it('writeConfig persists normalized linePct defaults for an old config', () => {
+    const path = join(dir, 'config.json');
+    writeConfig(clone(SEED_CONFIG), path);
+    const stored = JSON.parse(readFileSync(path, 'utf8'));
+    expect(stored.tasks.map(task => task.linePct)).toEqual([75, 75, 75, 75, 75]);
   });
 });
 

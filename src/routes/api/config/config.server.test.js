@@ -64,9 +64,14 @@ describe('GET/PUT /api/config', () => {
     });
   });
 
-  it('PUT writes validated config and a subsequent GET reflects it', async () => {
+  it('PUT writes normalized config and a subsequent GET reflects it', async () => {
     const updated = { ...validConfig, name: 'Updated Outreach' };
+    const normalized = {
+      ...updated,
+      tasks: updated.tasks.map(task => ({ ...task, linePct: 75 }))
+    };
     let stored = validConfig;
+    mocks.validateConfig.mockReturnValue(normalized);
     mocks.writeConfig.mockImplementation(value => {
       stored = value;
     });
@@ -77,8 +82,8 @@ describe('GET/PUT /api/config', () => {
       body: { ok: true }
     });
     expect(mocks.validateConfig).toHaveBeenCalledWith(updated);
-    expect(mocks.writeConfig).toHaveBeenCalledWith(updated);
-    expect(await responseBody(GET())).toEqual({ status: 200, body: updated });
+    expect(mocks.writeConfig).toHaveBeenCalledWith(normalized);
+    expect(await responseBody(GET())).toEqual({ status: 200, body: normalized });
   });
 
   it('PUT returns details for invalid config without changing persisted bytes', async () => {
