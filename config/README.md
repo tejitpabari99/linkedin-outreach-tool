@@ -37,20 +37,20 @@ lanes shown side by side; more than 3–4 will likely look cramped.
 ## `tasks[]`
 
 ```json
-{ "id": "invites", "lane": "outreach", "label": "Targeted connection requests", "min": 10, "target": 15, "link": "optional" }
+{ "id": "invites", "lane": "outreach", "label": "Targeted connection requests", "min": 10, "target": 15, "linePct": 75, "link": "optional" }
 ```
 
-| Field    | Type    | Required | Notes |
-|----------|---------|----------|-------|
-| `id`     | string  | yes | Unique. Referenced by week files' `counts`/`items[].taskId`. **Do not rename an existing task id** once you have logged weeks against it — old week files keep the old id and will show as an unrecognized/orphaned count. Add a new task instead, or edit historical `data/*.json` by hand if you really mean to rename. |
-| `lane`   | string  | yes | Must match a `lanes[].id`. |
-| `label`  | string  | yes | Shown on the task's progress bar. |
-| `min`    | integer | yes | The quota that "clears" the week for this task (D4) — the bar going green/complete. Must be `>= 0`. |
-| `target` | integer | yes | The stretch number (D4) — shown as a second mark on the same bar. Must be `>= min`. `min > target` is a hard config-validation error. |
-| `link`   | `"optional" \| "required"` | yes | D15. `"required"` means the UI will not let you log this task without attaching a URL (e.g. `post`, where the URL is the only record of what was actually published — content lives in Google Docs, never in this tool). `"optional"` means you can tap-log with no link and attach one later. |
+| Field     | Type    | Required | Notes |
+|-----------|---------|----------|-------|
+| `id`      | string  | yes | Unique. Referenced by week files' `counts`/`items[].taskId`. **Do not rename an existing task id** once you have logged weeks against it — old week files keep the old id and will show as an unrecognized/orphaned count. Add a new task instead, or edit historical `data/*.json` by hand if you really mean to rename. |
+| `lane`    | string  | yes | Must match a `lanes[].id`. |
+| `label`   | string  | yes | Shown on the task's progress bar. |
+| `min`     | integer | yes | The quota that clears the week for this task (D4). Must be `>= 0`. |
+| `target`  | integer | yes | The stretch number and 100% point on the progress bar. Must be `>= min`. `min > target` is a hard config-validation error. |
+| `linePct` | integer | no (default `75`) | Independent visual guide position on the progress bar, from `1` to `100`. It is not a quota and is not an alias for `min`; changing it never changes `min` or `target`. The normalized config returned by the app always contains it. |
+| `link`    | `"optional" \| "required"` | yes | D15 display hint. `"required"` nudges the UI to ask for a link, but never blocks a manual increment. SP6 freeform notes are valid concrete items for every task, including posts. `"optional"` carries no link nudge. |
 
-Setting `min` equal to `target` (as the shipped `post` task does: `min: 1, target: 1`) means
-there's no stretch tier for that task — it's just a single quota.
+Setting `min` equal to `target` means there is no stretch tier for that task — it is a single quota.
 
 ## `metrics[]`
 
@@ -62,7 +62,7 @@ there's no stretch tier for that task — it's just a single quota.
 |-------------|---------|----------|-------|
 | `id`        | string  | yes | Unique. Referenced by week files' `metrics`. Same rename caveat as `tasks[].id`. |
 | `label`     | string  | yes | Shown next to the number. |
-| `headline`  | boolean | no (default `false`) | At most one metric should set this `true` — it gets the sparkline treatment (D20) as the tool's single "how far have I come" number. Set on `followers` by default. |
+| `headline`  | boolean | no (default `false`) | Exactly one metric must set this `true` — it is the tool's single headline metric. Set on `followers` by default. |
 
 Metrics are **entered manually** (D6/D22 — no LinkedIn API, no scraping, ever) and are stored as
 absolute values per week, not deltas — a diary entry saying "followers at 1032" *sets* the number,
@@ -79,6 +79,20 @@ it doesn't add to it. Counters (`tasks[]`) are the opposite: they accumulate del
 | `label` | string | yes | Shown in the pinned-links strip. |
 | `url`   | string | yes (may be `""`) | An empty string is allowed and renders as a not-yet-filled-in pin — fill it in later. No id; links are matched/edited by array position. |
 
+## Week `items[]` compatibility
+
+Week files remain schema `version: 1`. The additive SP6 item shape is:
+
+```json
+{ "id": "uuid", "taskId": "comments", "at": "2026-09-01T05:10:00.000Z", "note": "Comment on Priya's post", "link": null }
+```
+
+`note` is optional for backward compatibility. New SP6 manual items contain a trimmed, non-empty
+note of at most 4,000 characters; each note is one concrete item and one count increment. Legacy
+items without `note` remain valid, and their nullable `link` object (`{ "url", "label" }`) is
+preserved for old week files and the existing link-attachment flow. This additive field does not
+require a week-version bump or a migration of historical files.
+
 ## Validation rules (hard errors, not warnings)
 
 Enforced on every load (`GET /api/config`, and again inside `PUT /api/config` before any write —
@@ -89,8 +103,9 @@ Enforced on every load (`GET /api/config`, and again inside `PUT /api/config` be
   unique within their own array — a task and a metric may share an id string without conflict,
   though avoiding that is clearer in practice).
 - `tasks[].min <= tasks[].target`, both `>= 0`, both integers.
-- `tasks[].link` is exactly `"optional"` or `"required"`.
-- At most one `metrics[].headline === true`.
+- Omitted `tasks[].linePct` is normalized to `75`; a present value must be an integer from `1` to `100`.
+- `tasks[].link` is exactly `"optional"` or `"required"`; it never gates a manual increment.
+- Exactly one `metrics[].headline === true`.
 
 A validation failure surfaces as a readable message naming the offending field on the page —
 never a stack trace — and never touches `data/`.
@@ -113,10 +128,10 @@ LinkedIn, by editing `config.json` alone, no code changes:
     { "id": "followthrough", "label": "Follow-through", "blurb": "Replies + calls" }
   ],
   "tasks": [
-    { "id": "cold_emails", "lane": "outbound", "label": "Cold emails sent", "min": 15, "target": 25, "link": "optional" },
-    { "id": "followups",   "lane": "outbound", "label": "Follow-up emails", "min": 5,  "target": 10, "link": "optional" },
-    { "id": "replies_handled", "lane": "followthrough", "label": "Replies responded to", "min": 3, "target": 6, "link": "optional" },
-    { "id": "calls_booked_task", "lane": "followthrough", "label": "Calls booked from outreach", "min": 1, "target": 3, "link": "optional" }
+    { "id": "cold_emails", "lane": "outbound", "label": "Cold emails sent", "min": 15, "target": 25, "linePct": 75, "link": "optional" },
+    { "id": "followups",   "lane": "outbound", "label": "Follow-up emails", "min": 5,  "target": 10, "linePct": 75, "link": "optional" },
+    { "id": "replies_handled", "lane": "followthrough", "label": "Replies responded to", "min": 3, "target": 6, "linePct": 75, "link": "optional" },
+    { "id": "calls_booked_task", "lane": "followthrough", "label": "Calls booked from outreach", "min": 1, "target": 3, "linePct": 75, "link": "optional" }
   ],
   "metrics": [
     { "id": "reply_rate", "label": "Reply rate (%)", "headline": true },

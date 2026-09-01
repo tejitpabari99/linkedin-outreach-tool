@@ -21,6 +21,7 @@
       "label": "Targeted connection requests",
       "min": 10,
       "target": 15,
+      "linePct": 75,
       "link": "optional"
     },
     {
@@ -29,6 +30,7 @@
       "label": "Follow-up DMs",
       "min": 2,
       "target": 4,
+      "linePct": 75,
       "link": "optional"
     },
     {
@@ -37,6 +39,7 @@
       "label": "Call asks sent",
       "min": 1,
       "target": 2,
+      "linePct": 75,
       "link": "optional"
     },
     {
@@ -45,6 +48,7 @@
       "label": "Substantive comments",
       "min": 5,
       "target": 10,
+      "linePct": 75,
       "link": "optional"
     },
     {
@@ -53,6 +57,7 @@
       "label": "Posts published",
       "min": 1,
       "target": 2,
+      "linePct": 75,
       "link": "required"
     }
   ],
@@ -82,7 +87,7 @@
   "links": [
     {
       "label": "Reachouts sheet",
-      "url": ""
+      "url": "https://docs.google.com/spreadsheets/d/17JejcB89EF5M2NI6u1KIlRKjcr9rKuyWgdjO2-BmKW8/edit?usp=drive_link"
     },
     {
       "label": "LinkedIn notifications",
@@ -94,11 +99,11 @@
     },
     {
       "label": "My profile",
-      "url": ""
+      "url": "https://www.linkedin.com/in/tejitpabari/"
     },
     {
       "label": "Strategy doc",
-      "url": ""
+      "url": "https://docs.google.com/document/d/1ALHlIqaLXDJA_um3Egi8odU-lxZFAa4tNbZ2RqJC7Kg/edit?usp=drive_link"
     }
   ]
 }
