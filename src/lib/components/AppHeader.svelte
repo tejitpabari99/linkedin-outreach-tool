@@ -4,6 +4,7 @@
   import { onMount, tick } from 'svelte';
   import JsonListEditor from '$lib/components/JsonListEditor.svelte';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
+  import { isAllowedUrl } from '$lib/utils/safeUrl.js';
   import {
     focusFirstInPopup,
     getPopupStore,
@@ -36,19 +37,6 @@
   let keyboardDialog = $state();
 
   usePopupEscapeHandler(popupStore);
-
-  // Keep the browser guard aligned with config.js without importing its node:fs-backed module.
-  function isAllowedUrl(url) {
-    if (typeof url !== 'string') return false;
-    if (url === '') return true;
-    if (/[\\]/.test(url)) return false;
-    try {
-      const protocol = new URL(url).protocol;
-      return protocol === 'http:' || protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }
 
   function popupIs(id) {
     return popupStore.current?.id === id;

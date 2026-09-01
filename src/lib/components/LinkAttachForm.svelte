@@ -1,30 +1,15 @@
 <script>
   import { base } from '$app/paths';
   import { untrack } from 'svelte';
+  import { isAllowedUrl } from '$lib/utils/safeUrl.js';
   let { item, weekKey, onSaved } = $props();
   let editing = $state(untrack(() => !item.note && !item.link));
   let url = $state(untrack(() => item.link?.url ?? ''));
   let label = $state(untrack(() => item.link?.label ?? ''));
   let error = $state(null);
 
-  function isSafeUrl(u) {
-    if (typeof u !== 'string' || u === '') return false;
-    if (/[\u0000-\u001F]/.test(u)) return false;
-    if (u.startsWith('/')) return !/^[/\\]{2}/.test(u.slice(0, 2)) && !u.slice(0, 2).includes('\\');
-    try {
-      const protocol = new URL(u).protocol;
-      return protocol === 'http:' || protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }
-
-  function validUrl(u) {
-    try { return ['http:', 'https:'].includes(new URL(u).protocol); } catch { return false; }
-  }
-
   async function save() {
-    if (!validUrl(url)) { error = "needs to look like a web address"; return; }
+    if (url === '' || !isAllowedUrl(url)) { error = "needs to look like a web address"; return; }
     if (!label.trim()) { error = "give it a short label"; return; }
     error = null;
     const res = await fetch(`${base}/api/week/${weekKey}/items/${item.id}`, {
@@ -44,7 +29,7 @@
 
 {#if item.note}
   <div class="flex min-w-0 items-center">
-    {#if isSafeUrl(item.note)}
+    {#if isAllowedUrl(item.note, { allowRelative: true })}
       <a class="link link-hover max-w-full break-words text-sm text-primary" href={item.note} target="_blank" rel="noopener noreferrer">{item.note}</a>
     {:else}
       <span class="max-w-full whitespace-pre-wrap break-words text-sm text-base-content/75">{item.note}</span>
@@ -60,7 +45,7 @@
   </div>
 {:else}
   <div class="flex flex-wrap items-center gap-2">
-    {#if item.link && isSafeUrl(item.link.url)}
+    {#if item.link && isAllowedUrl(item.link.url, { allowRelative: true })}
       <a class="btn btn-ghost min-h-10 max-w-full normal-case" href={item.link.url} target="_blank" rel="noopener noreferrer">{item.link.label}</a>
     {:else}
       <span class="inline-flex min-h-10 max-w-full items-center rounded-box border border-base-300 bg-base-200 px-3 text-sm text-base-content/60">{item.link?.label ?? 'link'}</span>
