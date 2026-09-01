@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { activityRange, buildActivityIndex } from '$lib/utils/activityTally.js';
   import { isAllowedUrl } from '$lib/utils/safeUrl.js';
-  import { PRODUCT_TASK_IDS, taskVisual } from '$lib/utils/taskVisuals.js';
+  import { PRODUCT_TASK_IDS, taskColorClass, taskVisual } from '$lib/utils/taskVisuals.js';
 
   let { range = null, weeksByKey = {}, config } = $props();
 
@@ -18,16 +18,6 @@
   const activityIndex = $derived(buildActivityIndex(Object.values(weeksByKey ?? {}), config));
   const days = $derived(activityRange(activityIndex, selectedRange.start, selectedRange.end));
   const isSingleDay = $derived(selectedRange.start === selectedRange.end);
-
-  function colorClass(colorRole) {
-    return {
-      secondary: 'text-secondary',
-      accent: 'text-accent',
-      info: 'text-info',
-      primary: 'text-primary',
-      call: 'text-warning'
-    }[colorRole] ?? 'text-base-content';
-  }
 
   function tallies(day) {
     return PRODUCT_TASK_IDS
@@ -71,7 +61,7 @@
               {#each dayTallies as tally, i (tally.taskId)}
                 {#if i > 0}<span class="text-base-content/35" aria-hidden="true">·</span>{/if}
                 <span>
-                  <span class={colorClass(tally.visual.colorRole)} aria-hidden="true">{tally.visual.symbol}</span>
+                  <span class={taskColorClass(tally.taskId)} aria-hidden="true">{tally.visual.symbol}</span>
                   {tally.count} {tally.visual.short.toLowerCase()}
                 </span>
               {/each}

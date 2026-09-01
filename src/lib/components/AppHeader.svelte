@@ -10,7 +10,7 @@
     trapPopupFocus,
     usePopupEscapeHandler
   } from '$lib/utils/popupStore.svelte.js';
-  import { PRODUCT_TASK_IDS, taskVisual } from '$lib/utils/taskVisuals.js';
+  import { PRODUCT_TASK_IDS, taskColorClass, taskVisual } from '$lib/utils/taskVisuals.js';
 
   const LINKS_POPUP = 'app-header-links';
   const DATA_POPUP = 'app-header-data';
@@ -18,7 +18,7 @@
 
   const store = getWeekStore();
   const popupStore = getPopupStore();
-  const taskVisuals = PRODUCT_TASK_IDS.map((taskId) => taskVisual(taskId));
+  const taskVisuals = PRODUCT_TASK_IDS.map((taskId) => ({ taskId, ...taskVisual(taskId) }));
 
   let linksOpen = $state(false);
   let dataOpen = $state(false);
@@ -192,16 +192,6 @@
     if (event.target === event.currentTarget) closeKeyboard();
   }
 
-  function visualColorClass(colorRole) {
-    return {
-      secondary: 'bg-secondary',
-      accent: 'bg-accent',
-      info: 'bg-info',
-      primary: 'bg-primary',
-      call: 'bg-warning'
-    }[colorRole] ?? 'bg-neutral';
-  }
-
   function toggleTheme() {
     dark = !dark;
     document.documentElement.dataset.theme = dark ? 'synthwave' : 'cupcake';
@@ -347,7 +337,7 @@
           <span class="text-lg" aria-hidden="true">{visual.symbol}</span>
           <span>{visual.short}</span>
           <span class="inline-flex items-center gap-2">
-            <span class={`size-3 rounded-full ${visualColorClass(visual.colorRole)}`} aria-hidden="true"></span>
+            <span class={`size-3 rounded-full ${taskColorClass(visual.taskId, 'background')}`} aria-hidden="true"></span>
             <span class="text-xs opacity-70">{visual.colorRole}</span>
           </span>
         {/each}

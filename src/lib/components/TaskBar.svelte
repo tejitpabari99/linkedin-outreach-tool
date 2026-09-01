@@ -3,7 +3,7 @@
   import ItemRemoveDialog from './ItemRemoveDialog.svelte';
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
   import { gradientStops, middleStopPosition, progressPct } from '$lib/utils/progress.js';
-  import { taskVisual } from '$lib/utils/taskVisuals.js';
+  import { taskColorClass, taskVisual } from '$lib/utils/taskVisuals.js';
 
   let { task } = $props();
   const store = getWeekStore();
@@ -41,7 +41,7 @@
 
 <article class="card gap-2 border border-base-300 bg-base-100 p-3 text-base-content shadow-sm">
   <h3 class="flex items-center gap-2 text-sm font-semibold">
-    <span aria-hidden="true">{visual.symbol}</span>
+    <span class={taskColorClass(task.id)} aria-hidden="true">{visual.symbol}</span>
     <span>{visual.short}</span>
   </h3>
 

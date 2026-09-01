@@ -14,6 +14,24 @@ export const TASK_VISUALS = Object.freeze({
   call_ask: Object.freeze({ symbol: '◎', short: 'Calls', colorRole: 'call' })
 });
 
+const TASK_COLOR_CLASSES = Object.freeze({
+  post: Object.freeze({ text: 'text-secondary', background: 'bg-secondary' }),
+  comments: Object.freeze({ text: 'text-accent', background: 'bg-accent' }),
+  invites: Object.freeze({ text: 'text-info', background: 'bg-info' }),
+  dms: Object.freeze({ text: 'text-primary', background: 'bg-primary' }),
+  call_ask: Object.freeze({ text: 'text-warning', background: 'bg-warning' })
+});
+
+const DEFAULT_COLOR_CLASSES = Object.freeze({
+  text: 'text-base-content',
+  background: 'bg-neutral'
+});
+
+export function taskColorClass(taskId, usage = 'text') {
+  const classes = TASK_COLOR_CLASSES[taskId] ?? DEFAULT_COLOR_CLASSES;
+  return classes[usage] ?? classes.text;
+}
+
 function configLabel(taskId, configOrLabel) {
   if (typeof configOrLabel === 'string' && configOrLabel) return configOrLabel;
   if (configOrLabel?.label) return configOrLabel.label;

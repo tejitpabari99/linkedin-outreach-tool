@@ -2,7 +2,7 @@
   import { getWeekStore } from '$lib/stores/weekStore.svelte.js';
   import { formatRange } from '$lib/utils/formatRange.js';
   import { selectNextTask } from '$lib/utils/selectNext.js';
-  import { PRODUCT_TASK_IDS, taskVisual } from '$lib/utils/taskVisuals.js';
+  import { PRODUCT_TASK_IDS, taskColorClass, taskVisual } from '$lib/utils/taskVisuals.js';
   import WeekFourCheck from './WeekFourCheck.svelte';
 
   let { weekFourResult = null } = $props();
@@ -10,16 +10,6 @@
 
   let nextTaskId = $derived(selectNextTask(store.config, store.week.counts));
   let nextTask = $derived(store.config.tasks.find((task) => task.id === nextTaskId));
-
-  function symbolClass(colorRole) {
-    return {
-      secondary: 'text-secondary',
-      accent: 'text-accent',
-      info: 'text-info',
-      primary: 'text-primary',
-      call: 'text-warning'
-    }[colorRole] ?? 'text-base-content';
-  }
 
   function goalText(min, target) {
     return min === target ? `${target}` : `${min}–${target}`;
@@ -41,7 +31,7 @@
       {@const target = task?.target ?? min}
       <li class="flex min-w-0 items-baseline justify-between gap-2 border-b border-base-300 px-1 py-1 text-xs">
         <span class="flex min-w-0 items-baseline gap-1.5 text-base-content">
-          <span class={`shrink-0 font-semibold ${symbolClass(visual.colorRole)}`}>{visual.symbol}</span>
+          <span class={`shrink-0 font-semibold ${taskColorClass(taskId)}`}>{visual.symbol}</span>
           <span class="truncate">{visual.short}</span>
         </span>
         <span class="shrink-0 tabular-nums text-base-content/70">{count} / {goalText(min, target)}</span>
@@ -52,7 +42,7 @@
   <p class="mt-2 text-xs text-base-content/70">
     {#if nextTaskId !== null && nextTask}
       {@const visual = taskVisual(nextTaskId, store.config)}
-      Next: <span class={`font-semibold ${symbolClass(visual.colorRole)}`}>{visual.symbol}</span>
+      Next: <span class={`font-semibold ${taskColorClass(nextTaskId)}`}>{visual.symbol}</span>
       {visual.short} · {(nextTask.min ?? 0) - (store.week.counts[nextTaskId] ?? 0)} to the minimum
     {:else}
       This week is done. Anything from here is extra.
