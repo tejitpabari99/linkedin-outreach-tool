@@ -49,6 +49,7 @@
 
       const result = await response.json();
       store.replaceWeek(result.week);
+      store.markWeekDirty(weekKey);
       value = '';
       visible = false;
       popupStore.close(popupId);
