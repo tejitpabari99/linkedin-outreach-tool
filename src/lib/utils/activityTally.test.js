@@ -48,6 +48,21 @@ describe('buildActivityIndex', () => {
     expect(activityDay(index, '2026-08-25').counts.post).toBe(3);
   });
 
+  it('counts the same item id only once when it appears in two week objects', () => {
+    const duplicate = {
+      id: 'shared-item',
+      taskId: 'invites',
+      at: '2026-08-25T19:00:00Z',
+      note: 'Shared projection'
+    };
+    const index = buildActivityIndex([
+      { week: '2026-W35', items: [duplicate] },
+      { week: '2026-W36', items: [{ ...duplicate }] }
+    ], config);
+
+    expect(activityDay(index, '2026-08-25').counts.invites).toBe(1);
+  });
+
   it('uses the configured local calendar date near a UTC/Pacific midnight boundary', () => {
     const index = buildActivityIndex([{
       items: [{ id: 'i1', taskId: 'invites', at: '2026-08-31T06:30:00Z', note: 'Late Sunday' }]

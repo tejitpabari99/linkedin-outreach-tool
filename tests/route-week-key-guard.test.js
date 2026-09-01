@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     removeEntry: vi.fn(),
     appendItem: vi.fn(),
     appendItems: vi.fn(),
+    removeItems: vi.fn(),
     projectWeekForConfig: vi.fn(),
     attachItemLink: vi.fn()
   };
@@ -36,7 +37,7 @@ import { DELETE as deleteEntry } from '../src/routes/api/week/[week]/entry/[id]/
 import { POST as applyEntry } from '../src/routes/api/week/[week]/entry/[id]/apply/+server.js';
 import { POST as discardEntry } from '../src/routes/api/week/[week]/entry/[id]/discard/+server.js';
 import { POST as reparseEntry } from '../src/routes/api/week/[week]/entry/[id]/reparse/+server.js';
-import { POST as createItem } from '../src/routes/api/week/[week]/items/+server.js';
+import { DELETE as deleteItems, POST as createItem } from '../src/routes/api/week/[week]/items/+server.js';
 import { PATCH as patchItem } from '../src/routes/api/week/[week]/items/[id]/+server.js';
 import { GET as exportWeek } from '../src/routes/api/export/+server.js';
 
@@ -97,6 +98,13 @@ const routes = [
     })
   },
   {
+    name: 'DELETE /api/week/[week]/items',
+    invoke: week => deleteItems({
+      params: { week },
+      request: requestWith({ taskId: 'post', itemIds: ['item-1'] })
+    })
+  },
+  {
     name: 'PATCH /api/week/[week]/items/[id]',
     invoke: week => patchItem({
       params: { week, id: 'missing' },
@@ -140,6 +148,10 @@ describe.each(routes)('$name week-key guard', route => {
     mocks.appendItems.mockImplementation(week => ({
       week,
       items: [{ id: 'item-1', taskId: 'post', note: 'note', link: null }]
+    }));
+    mocks.removeItems.mockImplementation(week => ({
+      week,
+      removedIds: ['item-1']
     }));
     mocks.projectWeekForConfig.mockImplementation(week => week);
     mocks.removeEntry.mockImplementation(() => {
