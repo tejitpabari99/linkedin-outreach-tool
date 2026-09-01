@@ -16,20 +16,20 @@
   }
 </script>
 
-<section class="rounded-box border border-base-300 bg-base-100 p-3" aria-labelledby="week-goals-heading">
-  <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-    <h2 id="week-goals-heading" class="text-sm font-semibold text-base-content">This week’s goals</h2>
+<section class="rounded-box border border-base-300 bg-base-100 p-4" aria-labelledby="week-goals-heading">
+  <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <h2 id="week-goals-heading" class="text-base font-semibold text-base-content">This week’s goals</h2>
     <p class="text-xs text-base-content/60">Mon–Sun · {formatRange(store.week.start, store.week.end)}</p>
   </div>
 
-  <ul class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-5">
+  <ul class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-5">
     {#each PRODUCT_TASK_IDS as taskId (taskId)}
       {@const task = store.config.tasks.find((candidate) => candidate.id === taskId)}
       {@const visual = taskVisual(taskId, store.config)}
       {@const count = store.week.counts[taskId] ?? 0}
       {@const min = task?.min ?? 0}
       {@const target = task?.target ?? min}
-      <li class="flex min-w-0 items-baseline justify-between gap-2 border-b border-base-300 px-1 py-1 text-xs">
+      <li class="flex min-w-0 items-baseline justify-between gap-2 border-b border-base-300 px-1.5 py-1.5 text-sm">
         <span class="flex min-w-0 items-baseline gap-1.5 text-base-content">
           <span class={`shrink-0 font-semibold ${taskColorClass(taskId)}`}>{visual.symbol}</span>
           <span class="truncate">{visual.short}</span>
@@ -39,7 +39,7 @@
     {/each}
   </ul>
 
-  <p class="mt-2 text-xs text-base-content/70">
+  <p class="mt-3 text-sm text-base-content/70">
     {#if nextTaskId !== null && nextTask}
       {@const visual = taskVisual(nextTaskId, store.config)}
       Next: <span class={`font-semibold ${taskColorClass(nextTaskId)}`}>{visual.symbol}</span>
