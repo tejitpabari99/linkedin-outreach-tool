@@ -5,25 +5,12 @@ import {
   emptyWeek,
   WeekError,
   projectWeekForConfig,
-  listWeekKeys,
-  nextWeekKey
+  listWeekKeys
 } from '$lib/weeks.js';
 import { sumAllTimeTotals } from '$lib/utils/allTimeTotals.js';
+import { buildCalendarMonth } from '$lib/utils/calendarMonth.js';
 import { summarizeWeekStatus } from '$lib/utils/historyStatus.js';
-import { isoWeekKeyFromUTCDate } from '$lib/utils/isoWeek.js';
 import { weekFourCheck } from '$lib/utils/weekFourCheck.js';
-
-function weekKeysBetween(startKey, endKey) {
-  const keys = [];
-  for (let key = startKey; key <= endKey; key = nextWeekKey(key)) keys.push(key);
-  return keys;
-}
-
-function weekKeysOverlappingMonth(year, month) {
-  const first = new Date(Date.UTC(year, month - 1, 1));
-  const last = new Date(Date.UTC(year, month, 0));
-  return weekKeysBetween(isoWeekKeyFromUTCDate(first), isoWeekKeyFromUTCDate(last));
-}
 
 export function load() {
   let config;
@@ -88,7 +75,9 @@ export function load() {
   }).formatToParts(new Date());
   const year = Number(todayParts.find(({ type }) => type === 'year').value);
   const month = Number(todayParts.find(({ type }) => type === 'month').value);
-  const monthWeekKeys = weekKeysOverlappingMonth(year, month);
+  const monthWeekKeys = [...new Set(
+    buildCalendarMonth(year, month, {}, weekKey, '').days.map(day => day.weekKey)
+  )];
   const activityWeeks = Object.fromEntries(
     monthWeekKeys.map((key) => {
       const activityWeek = projectedWeek(key);
