@@ -16,17 +16,8 @@
 </script>
 
 {#if result?.due && !dismissed}
-  <div class="week4-card {result.outcome === 'zero' ? 'week4-notable' : ''}">
-    <p class="week4-line">{result.line}</p>
-    <button class="week4-dismiss" onclick={dismiss}>Got it</button>
+  <div class="flex items-center justify-between gap-4 rounded-box border border-base-300 bg-base-200 px-4 py-3 {result.outcome === 'zero' ? 'border-l-4 border-l-secondary' : ''}">
+    <p class="m-0 text-sm text-base-content">{result.line}</p>
+    <button class="btn btn-outline btn-sm shrink-0" onclick={dismiss}>Got it</button>
   </div>
 {/if}
-
-<style>
-  .week4-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-    padding: 0.7rem 1rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 9px; }
-  .week4-notable { border-left: 3px solid var(--fg-secondary); }
-  .week4-line { font-size: 0.85rem; color: var(--fg); margin: 0; }
-  .week4-dismiss { flex-shrink: 0; background: none; border: 1px solid var(--chip-border); border-radius: 7px;
-    padding: 0.3rem 0.7rem; font-size: 0.76rem; color: var(--fg-secondary); cursor: pointer; }
-</style>

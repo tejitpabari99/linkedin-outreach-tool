@@ -43,7 +43,6 @@ export function load() {
   const weekKey = currentWeekKey(config.timezone);
   const projectedWeeks = new Map();
   const unreadableWeekKeys = new Set();
-  let totalsIncomplete = false;
   const projectedWeek = (key) => {
     if (!projectedWeeks.has(key)) {
       let raw;
@@ -51,7 +50,6 @@ export function load() {
         raw = readWeek(key, config);
       } catch (e) {
         if (!(e instanceof WeekError)) throw e;
-        totalsIncomplete = true;
         unreadableWeekKeys.add(key);
         console.warn(`Skipping unreadable week ${key} while loading the home page: ${e.message}`);
         raw = emptyWeek(key, config);
@@ -108,7 +106,6 @@ export function load() {
     week,
     weekKey,
     allTimeTotals,
-    totalsIncomplete,
     activityWeeks,
     weekFourCheck: weekFourResult
   };
