@@ -1,6 +1,10 @@
 <script>
   import { untrack } from 'svelte';
-  import { activityRange, buildActivityIndex } from '$lib/utils/activityTally.js';
+  import {
+    activityRange,
+    activityRangeAggregate,
+    buildActivityIndex
+  } from '$lib/utils/activityTally.js';
   import { isAllowedUrl } from '$lib/utils/safeUrl.js';
   import { PRODUCT_TASK_IDS, taskColorClass, taskVisual } from '$lib/utils/taskVisuals.js';
 
@@ -17,23 +21,26 @@
   );
   const activityIndex = $derived(buildActivityIndex(Object.values(weeksByKey ?? {}), config));
   const days = $derived(activityRange(activityIndex, selectedRange.start, selectedRange.end));
+  const aggregate = $derived(activityRangeAggregate(
+    activityIndex,
+    selectedRange.start,
+    selectedRange.end
+  ));
   const isSingleDay = $derived(selectedRange.start === selectedRange.end);
 
-  function tallies(day) {
+  function tallies({ counts }) {
     return PRODUCT_TASK_IDS
-      .map(taskId => ({ taskId, count: day.counts[taskId] ?? 0, visual: taskVisual(taskId, config) }))
+      .map(taskId => ({ taskId, count: counts[taskId] ?? 0, visual: taskVisual(taskId, config) }))
       .filter(tally => tally.count !== 0);
   }
 
-  function uniquePostItems(items) {
-    const seenIds = new Set();
-    return items.filter(item => {
-      if (!item.text) return false;
-      if (typeof item.id !== 'string') return true;
-      if (seenIds.has(item.id)) return false;
-      seenIds.add(item.id);
-      return true;
-    });
+  function noteText(item) {
+    return item.note ?? item.link?.label ?? item.link?.url ?? '';
+  }
+
+  function noteHref(item) {
+    if (item.note) return isAllowedUrl(item.note) ? item.note : null;
+    return isAllowedUrl(item.link?.url) ? item.link.url : null;
   }
 
   function dateLabel(date) {
@@ -49,10 +56,26 @@
 
 <section class="rounded-box border border-base-300 bg-base-100 p-3 text-base-content" aria-labelledby="what-happened-heading">
   <h2 id="what-happened-heading" class="text-sm font-semibold">What happened</h2>
+  {#if !isSingleDay}
+    {@const rangeTallies = tallies(aggregate)}
+    <div class="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-md bg-base-200 px-2.5 py-2 text-xs tabular-nums" aria-label="Selected range activity total">
+      <span class="font-semibold">Range total:</span>
+      {#if rangeTallies.length > 0}
+        {#each rangeTallies as tally, i (tally.taskId)}
+          {#if i > 0}<span class="text-base-content/35" aria-hidden="true">·</span>{/if}
+          <span>
+            <span class={taskColorClass(tally.taskId)} aria-hidden="true">{tally.visual.symbol}</span>
+            {tally.count} {tally.visual.short.toLowerCase()}
+          </span>
+        {/each}
+      {:else}
+        <span class="text-base-content/50">Nothing recorded</span>
+      {/if}
+    </div>
+  {/if}
   <ul class="mt-2 divide-y divide-base-300">
     {#each days as day (day.date)}
       {@const dayTallies = tallies(day)}
-      {@const postItems = uniquePostItems(day.postItems)}
       <li class="py-2 first:pt-0 last:pb-0">
         <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <time class="min-w-24 text-xs font-medium text-base-content/60" datetime={day.date}>{dateLabel(day.date)}</time>
@@ -70,21 +93,26 @@
             <p class="text-xs text-base-content/50">Nothing recorded</p>
           {/if}
         </div>
-        {#if postItems.length > 0}
-          <div class="mt-1.5 flex flex-wrap gap-1.5 pl-0 sm:pl-27">
-            {#each postItems as item, i (item.id ?? `${day.date}:${i}`)}
-              {#if item.href && isAllowedUrl(item.href)}
-                <a
-                  class="link link-hover max-w-full break-words rounded-md bg-base-200 px-2 py-1 text-xs text-primary"
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >{item.text}</a>
-              {:else}
-                <span class="max-w-full break-words rounded-md bg-base-200 px-2 py-1 text-xs text-base-content/70">{item.text}</span>
-              {/if}
+        {#if day.noteItems.length > 0}
+          <ul class="mt-1.5 space-y-1 pl-0 sm:pl-27">
+            {#each day.noteItems as item, i (item.id ?? `${day.date}:${i}`)}
+              {@const visual = taskVisual(item.taskId, config)}
+              {@const href = noteHref(item)}
+              <li class="flex min-w-0 items-start gap-1.5 text-xs">
+                <span class={taskColorClass(item.taskId)} aria-hidden="true">{visual.symbol}</span>
+                {#if href}
+                  <a
+                    class="link link-hover min-w-0 break-words text-primary"
+                    {href}
+                    target="_blank"
+                    rel="noopener"
+                  >{noteText(item)}</a>
+                {:else}
+                  <span class="min-w-0 break-words text-base-content/70">{noteText(item)}</span>
+                {/if}
+              </li>
             {/each}
-          </div>
+          </ul>
         {/if}
       </li>
     {/each}
