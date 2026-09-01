@@ -13,6 +13,7 @@
 
   let {
     title,
+    help = '',
     initial = [],
     parse = null,
     validate = null,
@@ -120,12 +121,15 @@
   >
     <div class="modal-box flex max-h-[calc(100dvh-2rem)] max-w-2xl flex-col gap-4 overflow-hidden bg-base-100 text-base-content">
       <h2 id={`${popupId}-title`} class="text-lg font-semibold">{title}</h2>
+      {#if help}
+        <p id={`${popupId}-help`} class="text-sm text-base-content/70">{help}</p>
+      {/if}
 
       <textarea
         class="textarea textarea-bordered min-h-64 w-full flex-1 resize-y overflow-auto font-mono text-sm"
         bind:value={draft}
         aria-label={`${title} JSON`}
-        aria-describedby={error ? `${popupId}-error` : undefined}
+        aria-describedby={[help ? `${popupId}-help` : '', error ? `${popupId}-error` : ''].filter(Boolean).join(' ') || undefined}
         aria-invalid={error ? 'true' : undefined}
         spellcheck="false"
       ></textarea>
