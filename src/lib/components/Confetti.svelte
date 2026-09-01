@@ -9,6 +9,7 @@
     config.tasks.every((task) => (store.week.counts[task.id] ?? 0) >= task.min)
   );
   let fired = $state(false);
+  const pieceColors = ['bg-primary', 'bg-secondary', 'bg-accent', 'bg-info', 'bg-warning'];
   let mountedOnce = false;
   let clearTimer;
 
@@ -55,7 +56,10 @@
 {#if fired}
   <div class="confetti-burst" aria-hidden="true">
     {#each Array(14) as _, i}
-      <span class="piece" style="--i:{i}; --hue:{(i * 47) % 360}"></span>
+      <span
+        class="piece {pieceColors[i % pieceColors.length]}"
+        style={`left: ${(i - 7) * 6}px; animation-delay: ${i * 0.02}s`}
+      ></span>
     {/each}
   </div>
 {/if}
@@ -66,13 +70,13 @@
     position: absolute;
     width: 6px;
     height: 10px;
-    background: hsl(var(--hue), 65%, 55%);
-    left: calc((var(--i) - 7) * 6px);
     animation: fall 1.1s ease-out forwards;
-    animation-delay: calc(var(--i) * 0.02s);
   }
   @keyframes fall {
     0% { transform: translateY(0) rotate(0deg); opacity: 1; }
     100% { transform: translateY(90px) rotate(200deg); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .piece { animation: none; transform: none; opacity: 0.85; }
   }
 </style>
