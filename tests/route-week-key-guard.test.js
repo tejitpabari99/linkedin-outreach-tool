@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     discardEntry: vi.fn(),
     removeEntry: vi.fn(),
     appendItem: vi.fn(),
+    appendItems: vi.fn(),
     attachItemLink: vi.fn()
   };
 });
@@ -91,7 +92,7 @@ const routes = [
     name: 'POST /api/week/[week]/items',
     invoke: week => createItem({
       params: { week },
-      request: requestWith({ taskId: 'post', link: null })
+      request: requestWith({ taskId: 'post', notes: ['note'] })
     })
   },
   {
@@ -134,6 +135,10 @@ describe.each(routes)('$name week-key guard', route => {
     mocks.appendItem.mockImplementation(week => ({
       week,
       item: { id: 'item-1', taskId: 'post', link: null }
+    }));
+    mocks.appendItems.mockImplementation(week => ({
+      week,
+      items: [{ id: 'item-1', taskId: 'post', note: 'note', link: null }]
     }));
     mocks.removeEntry.mockImplementation(() => {
       throw new mocks.WeekError('Entry not found');

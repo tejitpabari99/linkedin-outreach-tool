@@ -4,35 +4,97 @@ import * as weeks from '$lib/weeks.js';
 
 const WEEK_KEY_RE = /^\d{4}-W\d{2}$/;
 
-export async function POST({ params, request }) {
-  if (!WEEK_KEY_RE.test(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
-  if (!weeks.isValidWeekKey(params.week)) return json({ error: 'Invalid week key' }, { status: 400 });
-  const body = await request.json();
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    return json({ error: 'Request body must be a JSON object' }, { status: 400 });
-  }
-  const { taskId, link } = body;
-  const cfg = config.loadConfig();
-  if (!cfg.tasks.some(t => t.id === taskId)) {
-    return json({ error: `Unknown task id "${taskId}"` }, { status: 400 });
-  }
-  let week;
+function invalidWeek(week) {
+  return !WEEK_KEY_RE.test(week) || !weeks.isValidWeekKey(week);
+}
+
+function invalidBody(body) {
+  return typeof body !== 'object' || body === null || Array.isArray(body);
+}
+
+function validateTask(cfg, taskId) {
+  return cfg.tasks.some(task => task.id === taskId);
+}
+
+function readWeek(weekKey, cfg) {
   try {
-    week = weeks.readWeek(params.week, cfg);
-  } catch (e) {
-    if (e instanceof weeks.WeekError) {
-      return json({ error: `Week file ${params.week} exists but could not be parsed`, week: params.week }, { status: 500 });
+    return { week: weeks.readWeek(weekKey, cfg) };
+  } catch (error) {
+    if (error instanceof weeks.WeekError) {
+      return {
+        response: json(
+          { error: `Week file ${weekKey} exists but could not be parsed`, week: weekKey },
+          { status: 500 }
+        )
+      };
     }
-    throw e;
+    throw error;
   }
+}
+
+function validationError(message) {
+  return json({ error: message }, { status: 400 });
+}
+
+export async function POST({ params, request }) {
+  if (invalidWeek(params.week)) return validationError('Invalid week key');
+  const body = await request.json();
+  if (invalidBody(body)) return validationError('Request body must be a JSON object');
+
+  const { taskId, notes } = body;
+  if (!Array.isArray(notes) || notes.length < 1 || notes.length > 50) {
+    return validationError('notes must be an array containing 1 to 50 strings');
+  }
+  for (let index = 0; index < notes.length; index++) {
+    if (typeof notes[index] !== 'string') return validationError(`notes[${index}] must be a string`);
+    const trimmed = notes[index].trim();
+    if (trimmed.length === 0 || trimmed.length > 4000) {
+      return validationError(`notes[${index}] must contain 1 to 4000 characters after trimming`);
+    }
+  }
+
+  const cfg = config.loadConfig();
+  if (!validateTask(cfg, taskId)) return validationError(`Unknown task id "${taskId}"`);
+  const loaded = readWeek(params.week, cfg);
+  if (loaded.response) return loaded.response;
+
+  let result;
   try {
-    let item;
-    ({ week, item } = weeks.appendItem(week, { taskId, link: link ?? null }));
-    week = weeks.bumpCount(week, taskId, 1);
-    weeks.writeWeek(params.week, week);
-    return json({ item, counts: week.counts });
-  } catch (e) {
-    if (e instanceof weeks.WeekError) return json({ error: e.message }, { status: 400 });
-    throw e;
+    result = weeks.appendItems(loaded.week, { taskId, notes });
+  } catch (error) {
+    if (error instanceof weeks.WeekError) return validationError(error.message);
+    throw error;
   }
+  weeks.writeWeek(params.week, result.week);
+  return json({ items: result.items, week: result.week });
+}
+
+export async function DELETE({ params, request }) {
+  if (invalidWeek(params.week)) return validationError('Invalid week key');
+  const body = await request.json();
+  if (invalidBody(body)) return validationError('Request body must be a JSON object');
+
+  const { taskId, itemIds } = body;
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    return validationError('itemIds must be a non-empty array');
+  }
+  if (itemIds.some(id => typeof id !== 'string' || id.length === 0)) {
+    return validationError('itemIds must contain only non-empty strings');
+  }
+  if (new Set(itemIds).size !== itemIds.length) return validationError('itemIds must be unique');
+
+  const cfg = config.loadConfig();
+  if (!validateTask(cfg, taskId)) return validationError(`Unknown task id "${taskId}"`);
+  const loaded = readWeek(params.week, cfg);
+  if (loaded.response) return loaded.response;
+
+  let result;
+  try {
+    result = weeks.removeItems(loaded.week, { taskId, itemIds });
+  } catch (error) {
+    if (error instanceof weeks.WeekError) return validationError(error.message);
+    throw error;
+  }
+  weeks.writeWeek(params.week, result.week);
+  return json({ removedIds: result.removedIds, week: result.week });
 }

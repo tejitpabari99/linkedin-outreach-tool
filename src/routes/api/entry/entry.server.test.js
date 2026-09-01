@@ -169,9 +169,9 @@ describe('POST /api/entry cross-cutting behavior', () => {
 
     const itemResponse = await expectSuccess(createItem({
       params: { week: weekKey },
-      request: requestWith({ taskId: 'post', link: null })
+      request: requestWith({ taskId: 'post', notes: ['post note'] })
     }));
-    const { item } = await itemResponse.json();
+    const { items: [item] } = await itemResponse.json();
     await expectSuccess(patchItem({
       params: { week: weekKey, id: item.id },
       request: requestWith({ link: { url: 'https://example.test/post', label: 'Post' } })
