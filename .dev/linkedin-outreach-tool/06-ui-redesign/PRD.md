@@ -513,10 +513,63 @@ No manual intervention is required to author or implement the PRD. The supplied 
 | Q9 | D24 placement | `[RESOLVED]` — one small row directly below This week’s goals. It stays distinct from the calendar and keeps its existing deterministic, non-editorial copy/dismissal behavior. |
 | Q10 | Current config’s `post` target differs from the original D5 example | `[RESOLVED]` — SP6 consumes and edits the live config value; it does not reset quotas while adding `linePct`/URLs. The redesign is not a quota migration. |
 
+## 10. Iteration 1 — Feedback amendments (2026-09-01)
+
+Project-owner feedback after reviewing the `feat/ui-redesign` branch. These amend the sections noted;
+where they conflict with the original text, these win.
+
+### 10.1 Calmer theme (amends §4.B, §4.C)
+The cupcake/synthwave pair is **too bright/neon** (hot pink, high saturation) — over-stimulating, which is
+the opposite of the ADHD goal. Repick to a **calm, muted, low-stimulation** pair:
+- **Light: `nord`** — muted arctic blues/teals/greys, gentle contrast, subtle (not loud) accents.
+- **Dark: `dim`** — dusty, soft, low-contrast dark; calm rather than vivid.
+- Theme toggle mapping becomes `light → nord`, `dark → dim` (localStorage `theme` + `data-theme`
+  unchanged; default dark = `dim`). Update `app.html` bootstrap + AppHeader toggle accordingly.
+- The **progress gradient** (§4.C) is re-toned to gentle neighboring hues — soft teal/blue (0) →
+  muted lavender/indigo (line) → muted amber/gold (100). **No hot pink, no neon.** Sample from the calm
+  theme's own muted tokens.
+- **Task symbol colors** (§4.C / taskVisuals) use the calm theme's muted semantic colors, not saturated
+  accents. (Alternatives the owner may request instead: `winter`/`night`, or warm `caramellatte`/`coffee`.)
+
+### 10.2 Prominence (amends §4.E, §6.2)
+- The **five all-time totals** ("main goals") are the **most prominent** element: bigger boxes, larger
+  symbol + number, more visual weight — the clear top-of-page anchor.
+- **"This week's goals"** is rendered **slightly bigger** than before (larger type/spacing), secondary to
+  the totals but still prominent.
+
+### 10.3 Calendar Today button (amends §4.I)
+Add a **Today** button to the calendar that returns the view to the current month and resets the selection
+to today (the default single-day selection).
+
+### 10.4 `+`/`−` semantics — count is independent of the link popup (amends §4.G, §4.H)
+The link/note is **optional and must never gate the count**:
+- **`+` always increments by 1 on click**, immediately and durably (create one manual item now; count +1;
+  totals +1; mark week dirty). This happens **regardless** of the popup.
+- If the task's `showPopup` (§10.5) is on, an **optional** link/note popup then opens for that just-created
+  increment. **Save** attaches the note to it; **Discard/Escape** closes the popup and the `+1` **stands**
+  with no note. Escape is still "discard the popup," not "undo the +1." (The original multi-note dynamic
+  list is replaced by a single optional note box per `+`; the owner can request multi-add back.)
+- **`−`**: if the task has **≥1 removable manual item** this week, `−` opens the checkbox remove popup
+  (pick which to remove; Remove decrements by the number removed; Discard/Escape = no change). If the task
+  has **no manual items** this week, **no popup is shown** and `−` is a no-op. `−` stays disabled at count 0.
+  Minus still never touches diary/imported residual (the reconciliation rule in §4.H is preserved).
+
+This requires the **item `note` to be optional** (a bare manual increment with no note is valid): `+` creates
+a bare item on click, and the optional popup Save attaches the note afterward (via item PATCH `{note}`).
+`appendItems` accepts a bare/empty note entry (creates a note-less item, count +1); import/export preserve a
+note-less item.
+
+### 10.5 Per-box `showPopup` config property (amends §4.F, §5.1)
+Each task gains a boolean config field **`showPopup`** (default `true`) editable in the per-lane JSON editor
+alongside `min`/`target`/`linePct`. When `true`, `+` opens the optional link/note popup after counting;
+when `false`, `+` just counts `+1` with no popup. `validateConfig` normalizes an omitted `showPopup` to
+`true` and validates a present value as a boolean. The lane editor JSON row becomes
+`{ task, min, target, linePct, showPopup }`.
+
 ## Changelog
 - 2026-08-31 — Initial PRD for SP6 UI redesign (Tailwind v4 + DaisyUI cupcake/synthwave; all-time
   totals; this-week goals; gradient bars with inline +/- and configurable linePct; freeform-note
   batch item add/atomic remove; smaller heat calendar with click/shift-range selection + read-only
   daily/range tally; two in-place header dropdowns + Keyboard legend; metrics row dropped from main).
 - 2026-08-31 — Q2 (linePct = independent visual guide) and Q3 (tally shows diary-approved + manual
-  activity) marked RESOLVED per project-owner confirmation.
+  activity) marked RESOLVED per project-owner confirmation.- 2026-09-01 — Iteration 1 feedback amendments (§10): calmer nord/dim theme + muted gradient/symbols; bigger totals + goals; calendar Today button; + always counts (optional link popup, not a gate); - popup only when removable items exist; per-task showPopup config property; item note becomes optional.
