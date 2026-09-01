@@ -566,6 +566,58 @@ when `false`, `+` just counts `+1` with no popup. `validateConfig` normalizes an
 `true` and validates a present value as a boolean. The lane editor JSON row becomes
 `{ task, min, target, linePct, showPopup }`.
 
+## 11. Iteration 2 — Feedback amendments (2026-09-01, second pass)
+
+Project-owner feedback after reviewing iteration 1 on the branch. These amend the noted sections; where
+they conflict with earlier text, these win.
+
+### 11.1 "What happened" shows the note text for every task (amends §4.I)
+The daily/range tally must show **the note/link text the owner attached to any item**, not only `post`
+items. Under each day's tally line, list the notes/links for **all** that day's manual items (comments,
+requests, DMs, calls, posts). Render a note as an external link only when it passes `isAllowedUrl`, else as
+escaped plain text; a bare item (no note) contributes to the count but adds no text line. Fix the current
+behavior that surfaced notes only for `post` and dropped empty-note items entirely.
+
+### 11.2 Active logging date above the lanes — backfill / front-fill (amends §4.F, §4.J, §5.2, §5.4)
+The single date that used to sit under "What happened" moves **above the Outreach/Presence lanes** and
+becomes the **active logging date**, defaulting to **today** (in `config.timezone`).
+- The lanes, "This week's goals", and every logging action (`+`, `−`, note/link) operate on the **ISO week
+  of the active date**, and created items are **timestamped on the active date** (so a past date backfills,
+  a future date front-fills). Changing the active date loads that week into the reactive store
+  (`GET /api/week/[weekOfActiveDate]` → `replaceWeek`), so the bars/goals reflect the selected week.
+- **API:** `POST /api/week/[week]/items` accepts an optional **`at`** (ISO timestamp) applied to every
+  created item (default now); `appendItems` stamps items with it. The `[week]` in the path is the active
+  date's ISO week. `−`/note-PATCH also target the active week.
+- Clicking a **single** day in the calendar sets the active date (syncing the lanes + the single-day
+  "What happened"). A selected **range** is view-only (§11.4) and does not change the active date.
+- All-time totals remain all-time regardless of the active date.
+
+### 11.3 Calendar marks active days green (amends §4.I)
+A day on which anything was logged is marked **green** (a calm, muted green consistent with the nord/dim
+palette) rather than the previous neutral heat shade; zero days stay the base surface. Green intensity may
+still vary by amount, but "did something that day" reads as green at a glance. Heat remains non-hue-only
+for accessibility (keep the `aria-label` activity count).
+
+### 11.4 Range aggregate + quick-range preset buttons (amends §4.I)
+- When a **range** is selected, "What happened" shows, **above** the per-day breakdown, an **aggregate
+  total** for the whole range (e.g. `Range total: ◆ 12 comments · ➜ 30 requests · …`), then each day below.
+- Below the calendar, add quick-range buttons — **Last month · This month · Last week · This week** — that
+  auto-select that date range (highlighted on the calendar) and show its aggregate + per-day tabulation.
+  Weeks are Monday–Sunday; "month" is the calendar month.
+
+### 11.5 Diary: do not save on a failed parse (amends §4.G of SP2 / D8, D9)
+The diary must **not persist an entry when parsing fails**. This overrides the original verbatim-first
+guarantee (D8) at the owner's explicit request:
+- `POST /api/entry` **parses first and only writes the entry when the parse succeeds** (parseStatus becomes
+  `pending` with a preview). On a parse failure it **writes nothing** and returns a failure marker
+  (`{ status: 'failed', reason }`, no entry).
+- The `DiaryBox` UI, on failure: **keeps the textarea content**, shows a **single simple red error line at
+  the bottom** with an inline **try again**, and does **not** advance to a saved/preview state. No
+  "Saved — couldn't read it automatically…" copy. On success it clears and shows the Apply/Discard preview.
+- **Implication (accepted by the owner):** the diary is now an LLM-only path — when the model is
+  unavailable the diary won't save (the manual `+`/`−` remain the always-available fallback). Update SP2's
+  `POST /api/entry` contract + tests accordingly; the manual paths keep working with the LLM down.
+
 ## Changelog
 - 2026-08-31 — Initial PRD for SP6 UI redesign (Tailwind v4 + DaisyUI cupcake/synthwave; all-time
   totals; this-week goals; gradient bars with inline +/- and configurable linePct; freeform-note
@@ -573,3 +625,4 @@ when `false`, `+` just counts `+1` with no popup. `validateConfig` normalizes an
   daily/range tally; two in-place header dropdowns + Keyboard legend; metrics row dropped from main).
 - 2026-08-31 — Q2 (linePct = independent visual guide) and Q3 (tally shows diary-approved + manual
   activity) marked RESOLVED per project-owner confirmation.- 2026-09-01 — Iteration 1 feedback amendments (§10): calmer nord/dim theme + muted gradient/symbols; bigger totals + goals; calendar Today button; + always counts (optional link popup, not a gate); - popup only when removable items exist; per-task showPopup config property; item note becomes optional.
+- 2026-09-01 — Iteration 2 amendments (§11): What happened shows note text for every task + range aggregate; active logging date above the lanes (backfill/front-fill, item at-stamp); calendar marks active days green; quick-range preset buttons (last/this month, last/this week); diary no longer saves on a failed parse (parse-first, inline red error + try again, LLM-only path).
