@@ -1,4 +1,4 @@
-import { isAllowedUrl } from '$lib/config.js';
+import { isAllowedUrl } from '$lib/utils/safeUrl.js';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
