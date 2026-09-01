@@ -11,7 +11,8 @@
     config,
     activityWeeks = {},
     onRangeChange = () => {},
-    onWeeksChange = () => {}
+    onWeeksChange = () => {},
+    onActiveDateChange = () => {}
   } = $props();
   const store = getWeekStore();
 
@@ -96,6 +97,7 @@
     const version = ++navigationVersion;
     anchor = todayStr;
     range = { start: todayStr, end: todayStr };
+    onActiveDateChange(todayStr);
     localMonth = buildCalendarMonth(year, monthNumber, weeksByKey, store.weekKey, todayStr);
     loading = true;
 
@@ -120,6 +122,7 @@
     }
     anchor = date;
     range = { start: date, end: date };
+    onActiveDateChange(date);
   }
 
   function totalFor(date) {
@@ -128,10 +131,10 @@
   }
 
   function heatClass(total) {
-    if (total >= 10) return 'bg-warning/35';
-    if (total >= 5) return 'bg-secondary/25';
-    if (total >= 2) return 'bg-primary/20';
-    if (total >= 1) return 'bg-info/15';
+    if (total >= 10) return 'bg-success/40';
+    if (total >= 5) return 'bg-success/30';
+    if (total >= 2) return 'bg-success/20';
+    if (total >= 1) return 'bg-success/12';
     return 'bg-base-100';
   }
 

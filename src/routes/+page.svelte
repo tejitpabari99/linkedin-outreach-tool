@@ -164,6 +164,7 @@
           activityWeeks={data.activityWeeks}
           onRangeChange={(range) => selectedRange = range}
           onWeeksChange={(weeks) => activityWeeks = weeks}
+          onActiveDateChange={(date) => activeDate = date}
         />
       {/key}
     </section>
